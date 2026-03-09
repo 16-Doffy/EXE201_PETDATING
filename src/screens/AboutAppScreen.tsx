@@ -1,0 +1,33 @@
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
+import { RootStackParamList } from '@/types';
+
+type Props = NativeStackScreenProps<RootStackParamList, 'AboutApp'>;
+
+const AboutAppScreen = ({ navigation }: Props) => {
+  return (
+    <SafeAreaView className="flex-1 bg-figmaCream">
+      <ScrollView>
+        <View className="w-full max-w-[420px] self-center px-4 pt-2 pb-8">
+          <View className="flex-row items-center mb-5">
+            <TouchableOpacity onPress={() => navigation.goBack()} className="mr-3">
+              <Ionicons name="arrow-back" size={22} color="#1F2937" />
+            </TouchableOpacity>
+            <Text className="text-[24px] font-bold text-slate-900">About App</Text>
+          </View>
+
+          <View className="bg-white rounded-2xl border border-[#EEF2FF] p-4">
+            <Text className="text-slate-700 leading-6">
+              Bossitive là ứng dụng kết nối cộng đồng nuôi thú cưng: tìm bạn phù hợp, trò chuyện, lưu hồ sơ và quản lý thông
+              tin sức khỏe cho thú cưng. Phiên bản hiện tại tập trung vào trải nghiệm ghép đôi và nhắn tin cơ bản.
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
+
+export default AboutAppScreen;

@@ -1,0 +1,34 @@
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
+import { RootStackParamList } from '@/types';
+
+type Props = NativeStackScreenProps<RootStackParamList, 'PrivacyPolicy'>;
+
+const PrivacyPolicyScreen = ({ navigation }: Props) => {
+  return (
+    <SafeAreaView className="flex-1 bg-figmaCream">
+      <ScrollView>
+        <View className="w-full max-w-[420px] self-center px-4 pt-2 pb-8">
+          <View className="flex-row items-center mb-5">
+            <TouchableOpacity onPress={() => navigation.goBack()} className="mr-3">
+              <Ionicons name="arrow-back" size={22} color="#1F2937" />
+            </TouchableOpacity>
+            <Text className="text-[24px] font-bold text-slate-900">Privacy Policy</Text>
+          </View>
+
+          <View className="bg-white rounded-2xl border border-[#EEF2FF] p-4">
+            <Text className="text-slate-700 leading-6">
+              Bossitive thu thập thông tin cơ bản của tài khoản và hồ sơ thú cưng để cung cấp trải nghiệm ghép đôi, nhắn tin
+              và chăm sóc thú cưng. Chúng tôi không chia sẻ thông tin cá nhân cho bên thứ ba ngoài các dịch vụ cần thiết để
+              vận hành hệ thống.
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
+
+export default PrivacyPolicyScreen;
