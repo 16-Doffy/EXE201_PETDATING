@@ -1,22 +1,31 @@
-import { Text, View } from 'react-native';
+import { Image, Text, View } from 'react-native';
 
 type Props = {
   text: string;
   isMine: boolean;
-  timeLabel?: string;
-  statusLabel?: string;
+  otherAvatar?: string;
 };
 
-const ChatBubble = ({ text, isMine, timeLabel, statusLabel }: Props) => {
+const ChatBubble = ({ text, isMine, otherAvatar }: Props) => {
   return (
-    <View className={`mb-2 ${isMine ? 'items-end' : 'items-start'}`}>
-      <View className={`px-4 py-3 rounded-2xl max-w-[80%] ${isMine ? 'bg-rose' : 'bg-white'}`}>
-        <Text className={`${isMine ? 'text-white' : 'text-ink'}`}>{text}</Text>
-      </View>
+    <View className={`flex-row mb-3 ${isMine ? 'justify-end' : 'justify-start'}`}>
+      {!isMine && (
+        <Image
+          source={{ uri: otherAvatar || 'https://via.placeholder.com/30' }}
+          className="w-8 h-8 rounded-full self-end mr-2"
+        />
+      )}
 
-      <View className={`flex-row mt-1 ${isMine ? 'justify-end' : 'justify-start'}`}>
-        {timeLabel ? <Text className="text-[11px] text-slate-500">{timeLabel}</Text> : null}
-        {isMine && statusLabel ? <Text className="text-[11px] text-slate-500 ml-2">{statusLabel}</Text> : null}
+      <View
+        className={`px-4 py-2.5 max-w-[75%] ${
+          isMine
+            ? 'bg-[#0084ff] rounded-t-2xl rounded-l-2xl rounded-br-md'
+            : 'bg-gray-100 rounded-t-2xl rounded-r-2xl rounded-bl-md'
+        }`}
+      >
+        <Text className={`text-[16px] ${isMine ? 'text-white' : 'text-black'}`}>
+          {text}
+        </Text>
       </View>
     </View>
   );

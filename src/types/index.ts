@@ -14,6 +14,7 @@ export type RootStackParamList = {
   MainTabs: undefined;
   PetDetail: { petId: string };
   Chat: { matchId: string; otherPetName: string; otherPetId?: string };
+  Filter: undefined;
 };
 
 export type MainTabParamList = {
@@ -39,6 +40,9 @@ export type PetModel = {
   bio: string;
   image: string;
   ownerContact: string;
+  weight?: string;
+  tags?: string[];
+  type?: 'Dog' | 'Cat';
 };
 
 export type MatchModel = {

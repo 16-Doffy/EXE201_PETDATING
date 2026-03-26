@@ -59,7 +59,6 @@ const SwipeDeck = ({ pets, onSwipeLeft, onSwipeRight }: Props) => {
       resetPosition();
       return;
     }
-
     setIndex((prev) => Math.max(prev - 1, 0));
     resetPosition();
   };
@@ -75,46 +74,51 @@ const SwipeDeck = ({ pets, onSwipeLeft, onSwipeRight }: Props) => {
   if (!currentPet) {
     return (
       <View className="items-center justify-center mt-20 px-6">
-        <Text className="text-lg text-white/90 text-center">Tạm thời chưa có bé phù hợp gần bạn.</Text>
+        <Text className="text-lg text-gray-500 text-center">Tạm thời chưa có bé phù hợp gần bạn.</Text>
       </View>
     );
   }
 
   return (
     <View className="flex-1">
-      <Animated.View
-        {...panResponder.panHandlers}
-        style={{ transform: [...position.getTranslateTransform()] }}
-      >
-        <PetCard pet={currentPet} />
-      </Animated.View>
+      <View className="flex-1 justify-center">
+        <Animated.View
+          {...panResponder.panHandlers}
+          style={{ transform: [...position.getTranslateTransform()] }}
+        >
+          <PetCard pet={currentPet} />
+        </Animated.View>
+      </View>
 
-      <View className="flex-row justify-around items-center mt-5 mb-2 px-4">
+      {/* Control Buttons Based on Image 1 */}
+      <View className="flex-row justify-between items-center px-4 py-8">
+        <TouchableOpacity
+          onPress={undo}
+          className="w-12 h-12 rounded-full bg-gray-200 items-center justify-center"
+        >
+          <MaterialCommunityIcons name="backup-restore" size={24} color="#888" />
+        </TouchableOpacity>
+
         <TouchableOpacity
           onPress={() => swipe('left')}
-          className="w-14 h-14 rounded-full bg-white items-center justify-center"
-          activeOpacity={0.85}
+          className="w-16 h-16 rounded-full bg-[#00A78E] items-center justify-center shadow-lg shadow-[#00A78E]/40"
         >
-          <Ionicons name="close" size={30} color="#111" />
+          <Ionicons name="close" size={36} color="white" />
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={() => swipe('right')}
-          className="w-16 h-16 rounded-full bg-white items-center justify-center"
-          activeOpacity={0.85}
+          className="w-16 h-16 rounded-full bg-[#A389F4] items-center justify-center shadow-lg shadow-[#A389F4]/40"
         >
-          <Ionicons name="heart" size={30} color="#FF476A" />
+          <Ionicons name="heart" size={32} color="white" />
         </TouchableOpacity>
 
         <TouchableOpacity
-          className="w-14 h-14 rounded-full bg-white items-center justify-center"
-          activeOpacity={0.85}
-          onPress={undo}
+          className="w-12 h-12 rounded-full bg-gray-200 items-center justify-center"
         >
-          <MaterialCommunityIcons name="backup-restore" size={24} color="#F8BE38" />
+          <Ionicons name="bookmark" size={24} color="#888" />
         </TouchableOpacity>
       </View>
-
     </View>
   );
 };

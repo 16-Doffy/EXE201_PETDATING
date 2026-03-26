@@ -1,56 +1,29 @@
-import { Text, TouchableOpacity } from 'react-native';
+import React from 'react';
+import { Text, TouchableOpacity, ViewStyle } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 type Props = {
   title: string;
-  onPress?: () => void;
-  disabled?: boolean;
-  variant?: 'violet' | 'yellow' | 'pink';
-  size?: 'md' | 'lg';
-  rounded?: 'full' | 'xl';
-  textClassName?: string;
-  className?: string;
+  onPress: () => void;
+  style?: ViewStyle;
 };
 
-const variantClass: Record<NonNullable<Props['variant']>, string> = {
-  violet: 'bg-figmaViolet',
-  yellow: 'bg-figmaYellow',
-  pink: 'bg-[#F28BA9] border border-figmaTextRed',
-};
-
-const sizeClass: Record<NonNullable<Props['size']>, string> = {
-  md: 'py-3 px-6',
-  lg: 'py-4 px-8',
-};
-
-const roundedClass: Record<NonNullable<Props['rounded']>, string> = {
-  full: 'rounded-full',
-  xl: 'rounded-xl',
-};
-
-const textColorByVariant: Record<NonNullable<Props['variant']>, string> = {
-  violet: 'text-white',
-  yellow: 'text-figmaViolet',
-  pink: 'text-[#FFE8F2]',
-};
-
-const PrimaryButton = ({
-  title,
-  onPress,
-  disabled,
-  variant = 'violet',
-  size = 'lg',
-  rounded = 'full',
-  textClassName,
-  className,
-}: Props) => {
+const PrimaryButton = ({ title, onPress, style }: Props) => {
   return (
     <TouchableOpacity
+      activeOpacity={0.8}
       onPress={onPress}
-      disabled={disabled}
-      activeOpacity={0.85}
-      className={`${variantClass[variant]} ${sizeClass[size]} ${roundedClass[rounded]} items-center justify-center ${disabled ? 'opacity-70' : ''} ${className ?? ''}`}
+      style={style}
+      className="rounded-full overflow-hidden shadow-md shadow-primary/30"
     >
-      <Text className={`${textColorByVariant[variant]} font-semibold ${textClassName ?? 'text-lg'}`}>{title}</Text>
+      <LinearGradient
+        colors={['#00B4DB', '#0083B0']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        className="py-4 px-8 items-center"
+      >
+        <Text className="text-white font-bold text-lg">{title}</Text>
+      </LinearGradient>
     </TouchableOpacity>
   );
 };

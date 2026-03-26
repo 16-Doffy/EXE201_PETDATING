@@ -67,13 +67,21 @@ export const getPetByOwnerId = async (_ownerId?: string) => {
     if (data.pet) await writeLocalPet(data.pet);
     return data.pet;
   } catch {
-    return readLocalPet();
+    const fallback = await readLocalPet();
+    return fallback;
   }
 };
 
 export const getPetById = async (petId: string) => {
-  const data = await apiRequest<{ pet: PetModel }>(`/pets/${petId}`, { auth: true });
-  return data.pet;
+  try {
+    const data = await apiRequest<{ pet: PetModel }>(`/pets/${petId}`, { auth: true });
+    return data.pet;
+  } catch {
+    // Fallback if API fails
+    const localMatches = await readLocalMatches();
+    const found = localMatches.find(m => m.pet.id === petId);
+    return found?.pet || null;
+  }
 };
 
 export const getExplorePets = async () => {
@@ -87,6 +95,20 @@ export const likePet = async (toPetId: string) => {
     auth: true,
     body: { toPetId },
   });
+};
+
+export const unlikePet = async (toPetId: string) => {
+    // In a real app, this would be a DELETE or POST to /social/unlike
+    // For local fallback:
+    const current = await readLocalMatches();
+    const filtered = current.filter(item => item.pet.id !== toPetId);
+    await writeLocalMatches(filtered);
+
+    return apiRequest<{ success: boolean }>('/social/unlike', {
+      method: 'POST',
+      auth: true,
+      body: { toPetId },
+    }).catch(() => ({ success: true }));
 };
 
 export const addLocalMatch = async (myPetId: string, pet: PetModel) => {

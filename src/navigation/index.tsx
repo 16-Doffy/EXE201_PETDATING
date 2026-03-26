@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -21,6 +20,7 @@ import PrivacyPolicyScreen from '@/screens/PrivacyPolicyScreen';
 import LegalTermScreen from '@/screens/LegalTermScreen';
 import AboutAppScreen from '@/screens/AboutAppScreen';
 import FaqScreen from '@/screens/FaqScreen';
+import FilterScreen from '@/screens/FilterScreen';
 import { useAuth } from '@/hooks/useAuth';
 import { getPetByOwnerId } from '@/services/petService';
 
@@ -31,15 +31,20 @@ const MainTabs = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
       headerShown: false,
-      tabBarActiveTintColor: '#FF4F86',
-      tabBarInactiveTintColor: '#9A9AA4',
+      tabBarActiveTintColor: '#00B4DB',
+      tabBarInactiveTintColor: '#94A3B8',
       tabBarLabelStyle: { fontSize: 12, marginBottom: 2, fontWeight: '600' },
       tabBarStyle: {
         borderTopWidth: 0,
         height: 70,
         paddingBottom: 8,
         paddingTop: 8,
-        backgroundColor: '#FFF8FA',
+        backgroundColor: '#FFFFFF',
+        elevation: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
       },
       tabBarIcon: ({ color, size, focused }) => {
         if (route.name === 'Home') {
@@ -59,9 +64,9 @@ const MainTabs = () => (
       tabBarItemStyle: { paddingVertical: 2 },
     })}
   >
-    <Tab.Screen name="Home" component={HomeSwipeScreen} options={{ tabBarLabel: 'Home' }} />
-    <Tab.Screen name="Matches" component={MatchesScreen} options={{ tabBarLabel: 'Matches' }} />
-    <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile' }} />
+    <Tab.Screen name="Home" component={HomeSwipeScreen} options={{ tabBarLabel: 'Trang chủ' }} />
+    <Tab.Screen name="Matches" component={MatchesScreen} options={{ tabBarLabel: 'Trò chuyện' }} />
+    <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Cá nhân' }} />
   </Tab.Navigator>
 );
 
@@ -72,8 +77,6 @@ const AppNavigator = () => {
 
   useEffect(() => {
     let alive = true;
-    let intervalId: ReturnType<typeof setInterval> | null = null;
-
     const checkPet = async () => {
       try {
         if (!user) {
@@ -100,48 +103,39 @@ const AppNavigator = () => {
     };
 
     checkPet();
-
-    if (user && !hasPetProfile) {
-      intervalId = setInterval(checkPet, 1500);
-    }
-
-    return () => {
-      alive = false;
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [user, hasPetProfile]);
+    return () => { alive = false; };
+  }, [user]);
 
   if (loading || checkingPet) {
     return <SplashScreen />;
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!user ? (
-          <>
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Register" component={RegisterScreen} />
-            <Stack.Screen name="PhoneRegister" component={PhoneRegisterScreen} />
-          </>
-        ) : !hasPetProfile ? (
-          <Stack.Screen name="CreatePetProfile" component={CreatePetProfileScreen} />
-        ) : (
-          <>
-            <Stack.Screen name="MainTabs" component={MainTabs} />
-            <Stack.Screen name="PetDetail" component={PetDetailScreen} />
-            <Stack.Screen name="Chat" component={ChatScreen} />
-            <Stack.Screen name="HealthInfo" component={HealthInfoScreen} />
-            <Stack.Screen name="MyProfile" component={MyProfileScreen} />
-            <Stack.Screen name="Settings" component={SettingsScreen} />
-            <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
-            <Stack.Screen name="LegalTerm" component={LegalTermScreen} />
-            <Stack.Screen name="AboutApp" component={AboutAppScreen} />
-            <Stack.Screen name="FAQ" component={FaqScreen} />
-          </>
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {!user ? (
+        <>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen name="PhoneRegister" component={PhoneRegisterScreen} />
+        </>
+      ) : !hasPetProfile ? (
+        <Stack.Screen name="CreatePetProfile" component={CreatePetProfileScreen} />
+      ) : (
+        <>
+          <Stack.Screen name="MainTabs" component={MainTabs} />
+          <Stack.Screen name="PetDetail" component={PetDetailScreen} />
+          <Stack.Screen name="Chat" component={ChatScreen} />
+          <Stack.Screen name="HealthInfo" component={HealthInfoScreen} />
+          <Stack.Screen name="MyProfile" component={MyProfileScreen} />
+          <Stack.Screen name="Settings" component={SettingsScreen} />
+          <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+          <Stack.Screen name="LegalTerm" component={LegalTermScreen} />
+          <Stack.Screen name="AboutApp" component={AboutAppScreen} />
+          <Stack.Screen name="FAQ" component={FaqScreen} />
+          <Stack.Screen name="Filter" component={FilterScreen} options={{ presentation: 'modal' }} />
+        </>
+      )}
+    </Stack.Navigator>
   );
 };
 
