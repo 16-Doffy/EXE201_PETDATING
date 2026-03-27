@@ -1,0 +1,3 @@
+$a = "import 'react-native-gesture-handler';`nimport './global.css';`nimport { GestureHandlerRootView } from 'react-native-gesture-handler';`nimport { SafeAreaProvider } from 'react-native-safe-area-context';`nimport { NavigationContainer } from '@react-navigation/native';`nimport AppNavigator from './src/navigation';`n`nexport default function App() {`n  return (`n    <GestureHandlerRootView style={{ flex: 1 }}>`n      <SafeAreaProvider>`n        <NavigationContainer>`n          <AppNavigator />`n        </NavigationContainer>`n      </SafeAreaProvider>`n    </GestureHandlerRootView>`n  );`n}`n"
+[System.IO.File]::WriteAllText('d:\Desktop\exe201\App.tsx', $a)
+Write-Host 'Done'

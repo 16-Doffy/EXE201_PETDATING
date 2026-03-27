@@ -1,3 +1,4 @@
+// App.tsx - React Native Entry Point
 import 'react-native-gesture-handler';
 import './global.css';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';

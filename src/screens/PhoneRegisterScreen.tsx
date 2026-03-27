@@ -14,6 +14,7 @@ import { RootStackParamList } from '@/types';
 import { registerWithEmail } from '@/services/authService';
 import FigmaInput from '@/components/ui/FigmaInput';
 import PrimaryButton from '@/components/ui/PrimaryButton';
+import { LinearGradient } from 'expo-linear-gradient';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PhoneRegister'>;
 
@@ -47,7 +48,7 @@ const PhoneRegisterScreen = ({ navigation }: Props) => {
     try {
       setLoading(true);
       await registerWithEmail(email, password);
-      navigation.replace('CreatePetProfile');
+      // navigation.replace('CreatePetProfile'); // Flow handles it automatically in AppNavigator
     } catch (error: any) {
       Alert.alert('Đăng ký thất bại', error.message);
     } finally {
@@ -56,15 +57,20 @@ const PhoneRegisterScreen = ({ navigation }: Props) => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-figmaBlue">
+    <SafeAreaView className="flex-1 bg-white">
+      <LinearGradient
+        colors={['#E0EAFC', '#FFFFFF']}
+        className="absolute left-0 right-0 top-0 bottom-0"
+      />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
         <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
           <View className="flex-1 w-full max-w-[420px] self-center px-6 py-8 justify-center">
-            <Text className="text-center text-[38px] font-extrabold tracking-wide text-figmaPink mb-10">BOSSITIVE</Text>
+            <Text className="text-center text-[42px] font-extrabold tracking-widest text-primary italic mb-2">BOSSITIVE</Text>
+            <Text className="text-center text-textSub mb-12 font-medium">Đăng ký tài khoản mới</Text>
 
             <FigmaInput
               label="Email"
-              containerClassName="mb-5"
+              placeholder="Nhập địa chỉ email của bạn"
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -73,7 +79,7 @@ const PhoneRegisterScreen = ({ navigation }: Props) => {
 
             <FigmaInput
               label="Mật khẩu"
-              containerClassName="mb-5"
+              placeholder="Nhập mật khẩu (ít nhất 6 ký tự)"
               secureTextEntry
               value={password}
               onChangeText={setPassword}
@@ -81,7 +87,7 @@ const PhoneRegisterScreen = ({ navigation }: Props) => {
 
             <FigmaInput
               label="Xác nhận mật khẩu"
-              containerClassName="mb-8"
+              placeholder="Nhập lại mật khẩu"
               secureTextEntry
               value={confirmPassword}
               onChangeText={setConfirmPassword}
@@ -91,12 +97,11 @@ const PhoneRegisterScreen = ({ navigation }: Props) => {
               title={loading ? 'ĐANG XỬ LÝ...' : 'HOÀN THÀNH'}
               onPress={onRegister}
               disabled={loading}
-              className="self-center w-44 h-12 mb-6"
-              textClassName="text-base"
+              className="mt-6 mb-6 shadow-lg shadow-primary/30"
             />
 
             <TouchableOpacity onPress={() => navigation.goBack()}>
-              <Text className="text-center text-figmaPink text-sm">Quay lại</Text>
+              <Text className="text-center text-textSub font-bold">Quay lại</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

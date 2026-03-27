@@ -15,7 +15,6 @@ const ChatBubble = ({ text, isMine, otherAvatar }: Props) => {
           className="w-8 h-8 rounded-full self-end mr-2"
         />
       )}
-
       <View
         className={`px-4 py-2.5 max-w-[75%] ${
           isMine

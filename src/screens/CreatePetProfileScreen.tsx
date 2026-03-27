@@ -7,47 +7,44 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  SafeAreaView,
+  DeviceEventEmitter,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { createPetProfile } from '@/services/petService';
 import PrimaryButton from '@/components/ui/PrimaryButton';
-import SectionTitle from '@/components/ui/SectionTitle';
-import TagChip from '@/components/ui/TagChip';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { getRandomImage } from '@/constants/images';
 
-const defaultImage = 'https://images.unsplash.com/photo-1517849845537-4d257902454a?w=900';
-
-const personalityOptions = ['Thân thiện, dễ gần', 'Hướng ngoại', 'Lanh lợi', 'Nghịch ngợm', 'Hiền lành'];
-const activityOptions = ['Tắm nắng', 'Leo cầu thang', 'Bơi', 'Chạy vòng quanh công viên'];
+const personalityOptions = ['Thân thiện', 'Nghịch ngợm', 'Hiền lành', 'Lanh lợi', 'Dễ gần'];
 
 const CreatePetProfileScreen = () => {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [breed, setBreed] = useState('');
   const [gender, setGender] = useState<'Male' | 'Female' | 'Other'>('Male');
+  const [type, setType] = useState<'Dog' | 'Cat'>('Dog');
   const [location, setLocation] = useState('');
   const [bio, setBio] = useState('');
   const [ownerContact, setOwnerContact] = useState('');
-  const [image, setImage] = useState(defaultImage);
+  const [image, setImage] = useState('');
   const [loading, setLoading] = useState(false);
-
   const [personality, setPersonality] = useState<string[]>([]);
-  const [activities, setActivities] = useState<string[]>([]);
 
-  const imageSlots = useMemo(() => Array.from({ length: 6 }), []);
-  const videoSlots = useMemo(() => Array.from({ length: 3 }), []);
-
-  const toggleChip = (value: string, selected: string[], setSelected: (list: string[]) => void) => {
-    if (selected.includes(value)) {
-      setSelected(selected.filter((v) => v !== value));
-      return;
+  const togglePersonality = (value: string) => {
+    if (personality.includes(value)) {
+      setPersonality(personality.filter((v) => v !== value));
+    } else {
+      setPersonality([...personality, value]);
     }
-    setSelected([...selected, value]);
   };
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
+      aspect: [1, 1],
       quality: 0.7,
     });
 
@@ -64,117 +61,148 @@ const CreatePetProfileScreen = () => {
 
     try {
       setLoading(true);
+      const finalImage = image || getRandomImage(type, Date.now().toString());
+
       await createPetProfile({
         name,
         age,
         breed,
         gender,
+        type,
         location,
-        bio: [bio, personality.join(', '), activities.join(', ')].filter(Boolean).join(' | '),
-        image,
+        bio: [bio, personality.join(', ')].filter(Boolean).join(' | '),
+        image: finalImage,
         ownerContact,
       });
-      Alert.alert('Thành công', 'Đã lưu hồ sơ thú cưng.');
+
+      // PHÁT TÍN HIỆU ĐỂ APPNAVIGATOR CHUYỂN TRANG
+      DeviceEventEmitter.emit('petProfileCreated');
+
+      Alert.alert('Thành công', 'Hồ sơ thú cưng đã được tạo!');
     } catch (error: any) {
-      Alert.alert('Không thể lưu hồ sơ', error.message);
+      Alert.alert('Lỗi', error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <ScrollView className="flex-1 bg-[#AECCEB]" contentContainerStyle={{ padding: 16, paddingBottom: 36 }}>
-      <SectionTitle title="Images:" className="text-xl mb-3" />
-      <View className="flex-row flex-wrap justify-between mb-5">
-        {imageSlots.map((_, idx) => (
-          <TouchableOpacity
-            key={`img-${idx}`}
-            className="w-[31%] h-32 mb-3 bg-white border border-figmaViolet rounded-xl items-center justify-center"
-            onPress={pickImage}
-            activeOpacity={0.85}
-          >
-            <Text className="text-figmaTextRed text-xl">Thêm</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <SectionTitle title="Videos:" className="text-xl mb-3" />
-      <View className="flex-row flex-wrap justify-between mb-8">
-        {videoSlots.map((_, idx) => (
-          <View
-            key={`vid-${idx}`}
-            className="w-[31%] h-32 mb-3 bg-white border border-figmaViolet rounded-xl items-center justify-center"
-          >
-            <Text className="text-figmaTextRed text-xl">Thêm</Text>
-          </View>
-        ))}
-      </View>
-
-      <Text className="text-figmaTextBlue text-xl font-semibold mb-2">“Vài dòng ngắn” về thú cưng của bạn:</Text>
-      <TextInput
-        className="bg-white border border-figmaViolet rounded-xl px-4 py-3 mb-6"
-        value={bio}
-        onChangeText={setBio}
+    <SafeAreaView className="flex-1 bg-white">
+      <LinearGradient
+        colors={['#E0EAFC', '#FFFFFF']}
+        className="absolute left-0 right-0 top-0 bottom-0"
       />
-
-      <SectionTitle title="Thông tin cơ bản:" className="text-xl mb-2" />
-      <TextInput className="bg-white rounded-xl px-4 py-3 mb-3" placeholder="Tên" value={name} onChangeText={setName} />
-      <TextInput className="bg-white rounded-xl px-4 py-3 mb-3" placeholder="Tuổi" value={age} onChangeText={setAge} />
-      <TextInput className="bg-white rounded-xl px-4 py-3 mb-3" placeholder="Giống loài" value={breed} onChangeText={setBreed} />
-      <TextInput className="bg-white rounded-xl px-4 py-3 mb-3" placeholder="Khu vực" value={location} onChangeText={setLocation} />
-      <TextInput className="bg-white rounded-xl px-4 py-3 mb-4" placeholder="Liên hệ" value={ownerContact} onChangeText={setOwnerContact} />
-
-      <View className="flex-row gap-2 mb-5">
-        {(['Male', 'Female', 'Other'] as const).map((option) => (
-          <TouchableOpacity
-            key={option}
-            className={`flex-1 py-3 rounded-full border border-figmaTextRed ${gender === option ? 'bg-figmaViolet' : 'bg-white'}`}
-            onPress={() => setGender(option)}
-          >
-            <Text className={`text-center ${gender === option ? 'text-white' : 'text-figmaTextRed'}`}>{option}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <View className="mb-4">
-        <SectionTitle title="Kiểu tính cách:" />
-        <View className="flex-row flex-wrap">
-          {personalityOptions.map((item) => (
-            <TagChip
-              key={item}
-              label={item}
-              selected={personality.includes(item)}
-              onPress={() => toggleChip(item, personality, setPersonality)}
-            />
-          ))}
+      <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
+        <View className="py-8">
+            <Text className="text-3xl font-bold text-textMain mb-2">Tạo hồ sơ thú cưng</Text>
+            <Text className="text-textSub font-medium">Hãy để mọi người biết về bé yêu của bạn</Text>
         </View>
-      </View>
 
-      <View className="mb-7">
-        <SectionTitle title="Hoạt động yêu thích:" />
-        <View className="flex-row flex-wrap">
-          {activityOptions.map((item) => (
-            <TagChip
-              key={item}
-              label={item}
-              selected={activities.includes(item)}
-              onPress={() => toggleChip(item, activities, setActivities)}
+        <TouchableOpacity
+            onPress={pickImage}
+            className="w-full h-48 bg-white rounded-3xl border-2 border-dashed border-gray-200 items-center justify-center mb-8 overflow-hidden"
+        >
+            {image ? (
+                <Image source={{ uri: image }} className="w-full h-full" />
+            ) : (
+                <View className="items-center">
+                    <Ionicons name="camera-outline" size={40} color="#94A3B8" />
+                    <Text className="text-textSub mt-2 font-bold">Thêm ảnh thú cưng</Text>
+                </View>
+            )}
+        </TouchableOpacity>
+
+        <View className="mb-6">
+            <Text className="text-textMain font-bold mb-4">Thông tin cơ bản</Text>
+
+            <View className="flex-row mb-4">
+                <TouchableOpacity
+                    onPress={() => setType('Dog')}
+                    className={`flex-1 py-4 rounded-2xl items-center mr-2 border ${type === 'Dog' ? 'bg-primary border-primary' : 'bg-white border-gray-100'}`}
+                >
+                    <Ionicons name="paw" size={24} color={type === 'Dog' ? 'white' : '#94A3B8'} />
+                    <Text className={`font-bold mt-1 ${type === 'Dog' ? 'text-white' : 'text-textSub'}`}>Chó</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    onPress={() => setType('Cat')}
+                    className={`flex-1 py-4 rounded-2xl items-center ml-2 border ${type === 'Cat' ? 'bg-primary border-primary' : 'bg-white border-gray-100'}`}
+                >
+                    <MaterialCommunityIcons name="cat" size={24} color={type === 'Cat' ? 'white' : '#94A3B8'} />
+                    <Text className={`font-bold mt-1 ${type === 'Cat' ? 'text-white' : 'text-textSub'}`}>Mèo</Text>
+                </TouchableOpacity>
+            </View>
+
+            <TextInput
+                placeholder="Tên của bé"
+                value={name}
+                onChangeText={setName}
+                className="bg-white border border-gray-100 rounded-2xl px-5 py-4 mb-4 text-textMain shadow-sm"
             />
-          ))}
+            <View className="flex-row mb-4">
+                <TextInput
+                    placeholder="Tuổi (vd: 2 tuổi)"
+                    value={age}
+                    onChangeText={setAge}
+                    className="flex-1 bg-white border border-gray-100 rounded-2xl px-5 py-4 mr-2 text-textMain shadow-sm"
+                />
+                <TextInput
+                    placeholder="Giống loài"
+                    value={breed}
+                    onChangeText={setBreed}
+                    className="flex-1 bg-white border border-gray-100 rounded-2xl px-5 py-4 ml-2 text-textMain shadow-sm"
+                />
+            </View>
+            <TextInput
+                placeholder="Khu vực sinh sống"
+                value={location}
+                onChangeText={setLocation}
+                className="bg-white border border-gray-100 rounded-2xl px-5 py-4 mb-4 text-textMain shadow-sm"
+            />
+            <TextInput
+                placeholder="Số điện thoại liên hệ"
+                value={ownerContact}
+                onChangeText={setOwnerContact}
+                keyboardType="phone-pad"
+                className="bg-white border border-gray-100 rounded-2xl px-5 py-4 mb-4 text-textMain shadow-sm"
+            />
         </View>
-      </View>
 
-      <View className="items-center mb-5">
-        <Image source={{ uri: image }} className="w-32 h-32 rounded-full mb-4" />
+        <View className="mb-6">
+            <Text className="text-textMain font-bold mb-4">Tính cách</Text>
+            <View className="flex-row flex-wrap">
+                {personalityOptions.map((item) => (
+                    <TouchableOpacity
+                        key={item}
+                        onPress={() => togglePersonality(item)}
+                        className={`mr-2 mb-2 px-4 py-2 rounded-full border ${personality.includes(item) ? 'bg-primary border-primary' : 'bg-white border-gray-200'}`}
+                    >
+                        <Text className={`${personality.includes(item) ? 'text-white' : 'text-textSub'} font-medium`}>{item}</Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
+        </View>
+
+        <View className="mb-10">
+            <Text className="text-textMain font-bold mb-4">Mô tả thêm</Text>
+            <TextInput
+                placeholder="Giới thiệu đôi chút về bé..."
+                value={bio}
+                onChangeText={setBio}
+                multiline
+                numberOfLines={4}
+                className="bg-white border border-gray-100 rounded-2xl px-5 py-4 text-textMain shadow-sm h-32"
+                textAlignVertical="top"
+            />
+        </View>
+
         <PrimaryButton
-          title={loading ? 'Đang lưu...' : 'Lưu thông tin'}
-          onPress={onSave}
-          disabled={loading}
-          className="px-10"
-          textClassName="text-2xl text-figmaYellow"
+            title={loading ? "ĐANG LƯU..." : "TẠO HỒ SƠ"}
+            onPress={onSave}
+            disabled={loading}
+            className="mb-12 shadow-lg shadow-primary/30"
         />
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 

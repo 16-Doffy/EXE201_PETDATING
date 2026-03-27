@@ -12,7 +12,6 @@ const FilterScreen = ({ navigation }: Props) => {
   const [gender, setGender] = useState('Tất cả');
   const [distance, setDistance] = useState(10);
 
-  // Strictly Dog and Cat as requested
   const categories = ['Tất cả', 'Chó', 'Mèo'];
   const genders = ['Tất cả', 'Đực', 'Cái'];
 

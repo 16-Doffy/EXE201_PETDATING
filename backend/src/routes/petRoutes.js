@@ -17,7 +17,6 @@ router.post('/me', auth, async (req, res) => {
       { ...payload, ownerId: req.userId },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     ).lean();
-
     res.status(201).json({ pet: { ...pet, id: pet._id.toString() } });
   } catch (error) {
     res.status(500).json({ message: 'Failed to save pet profile', error: error.message });
@@ -37,10 +36,9 @@ router.get('/me', auth, async (req, res) => {
 router.get('/explore', auth, async (req, res) => {
   try {
     const myPet = await Pet.findOne({ ownerId: req.userId }).lean();
-    if (!myPet) return res.json({ pets: [] });
-
-    const pets = await Pet.find({ _id: { $ne: myPet._id } }).lean();
-    res.json({ pets: pets.map((pet) => ({ ...pet, id: pet._id.toString() })) });
+    const query = myPet ? { _id: { $ne: myPet._id } } : {};
+    const pets = await Pet.find(query).lean();
+    res.json({ pets: pets.map((p) => ({ ...p, id: p._id.toString() })) });
   } catch (error) {
     res.status(500).json({ message: 'Failed to load explore pets', error: error.message });
   }
@@ -56,82 +54,34 @@ router.get('/:petId', auth, async (req, res) => {
   }
 });
 
+// SEED DATA: 2 CHÓ, 2 MÈO
 router.post('/seed/demo', async (_req, res) => {
   try {
-    const existing = await User.findOne({ email: 'demo-owner@bossitive.app' });
-    if (existing) {
-      return res.json({ ok: true, seeded: false, message: 'Demo data already exists' });
-    }
+    await Promise.all([Pet.deleteMany({}), User.deleteMany({}), Match.deleteMany({}), Message.deleteMany({})]);
 
     const passwordHash = await bcrypt.hash('123456', 10);
     const owners = await User.insertMany([
-      { email: 'demo-owner@bossitive.app', passwordHash },
-      { email: 'demo-owner2@bossitive.app', passwordHash },
-      { email: 'demo-owner3@bossitive.app', passwordHash },
-      { email: 'demo-owner4@bossitive.app', passwordHash },
+      { email: 'dog1@test.com', passwordHash },
+      { email: 'dog2@test.com', passwordHash },
+      { email: 'cat1@test.com', passwordHash },
+      { email: 'cat2@test.com', passwordHash },
     ]);
 
-    const demoPets = [
-      {
-        ownerId: owners[0]._id,
-        name: 'Boss',
-        age: '3',
-        breed: 'Corgi',
-        gender: 'Male',
-        location: 'HCM',
-        bio: 'Thân thiện, thích chạy bộ và chơi bóng.',
-        image: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=1000',
-        ownerContact: '0900000001',
-      },
-      {
-        ownerId: owners[1]._id,
-        name: 'Milo',
-        age: '2',
-        breed: 'Shiba',
-        gender: 'Male',
-        location: 'HCM',
-        bio: 'Năng động, thích đi dạo công viên.',
-        image: 'https://images.unsplash.com/photo-1518717758536-85ae29035b6d?w=1000',
-        ownerContact: '0900000002',
-      },
-      {
-        ownerId: owners[2]._id,
-        name: 'Luna',
-        age: '1',
-        breed: 'Poodle',
-        gender: 'Female',
-        location: 'HCM',
-        bio: 'Hiền lành, thích ôm và ngủ nướng.',
-        image: 'https://images.unsplash.com/photo-1517849845537-4d257902454a?w=1000',
-        ownerContact: '0900000003',
-      },
-      {
-        ownerId: owners[3]._id,
-        name: 'Nabi',
-        age: '4',
-        breed: 'Mèo Anh lông ngắn',
-        gender: 'Female',
-        location: 'HCM',
-        bio: 'Thông minh, khá hướng nội nhưng rất dễ thương.',
-        image: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=1000',
-        ownerContact: '0900000004',
-      },
-    ];
+    const pets = await Pet.insertMany([
+      { ownerId: owners[0]._id, name: 'Lu (Corgi)', age: '2 tuổi', breed: 'Corgi', type: 'Dog', gender: 'Male', location: 'Quận 1', bio: 'Ham chơi.', image: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b', ownerContact: '091' },
+      { ownerId: owners[1]._id, name: 'Ki (Poodle)', age: '1 tuổi', breed: 'Poodle', type: 'Dog', gender: 'Female', location: 'Quận 7', bio: 'Thông minh.', image: 'https://images.unsplash.com/photo-1516734212186-a967f81ad0d7', ownerContact: '092' },
+      { ownerId: owners[2]._id, name: 'Mimi (Mèo Anh)', age: '3 tuổi', breed: 'Mèo Anh', type: 'Cat', gender: 'Female', location: 'Bình Thạnh', bio: 'Lười biếng.', image: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba', ownerContact: '093' },
+      { ownerId: owners[3]._id, name: 'Mít (Mèo Mướp)', age: '2 tuổi', breed: 'Mèo Mướp', type: 'Cat', gender: 'Male', location: 'Thủ Đức', bio: 'Dễ nuôi.', image: 'https://images.unsplash.com/photo-1519052537078-e6302a4968d4', ownerContact: '094' }
+    ]);
 
-    const pets = await Pet.insertMany(demoPets);
+    // Tạo Match mẫu giữa Lu và Ki
+    const pair = [pets[0]._id.toString(), pets[1]._id.toString()].sort();
+    const match = await Match.create({ pet1: pair[0], pet2: pair[1], createdAt: Date.now() });
+    await Message.create({ matchId: match._id, senderPetId: pets[0]._id, text: 'Gâu gâu!', createdAt: Date.now() });
 
-    if (pets.length >= 2) {
-      await Like.create({ fromPetId: pets[0]._id, toPetId: pets[1]._id });
-      await Like.create({ fromPetId: pets[1]._id, toPetId: pets[0]._id });
-      const pair = [pets[0]._id.toString(), pets[1]._id.toString()].sort();
-      const match = await Match.create({ pet1: pair[0], pet2: pair[1] });
-      await Message.create({ matchId: match._id, senderPetId: pets[0]._id, text: 'Chào bạn, đi chơi công viên không?' });
-      await Message.create({ matchId: match._id, senderPetId: pets[1]._id, text: 'Oke luôn, cuối tuần này nha!' });
-    }
-
-    res.status(201).json({ ok: true, seeded: true, count: pets.length });
+    res.json({ ok: true, message: 'Đã tạo 2 Chó, 2 Mèo thành công!' });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to seed demo data', error: error.message });
+    res.status(500).json({ message: 'Seed failed', error: error.message });
   }
 });
 

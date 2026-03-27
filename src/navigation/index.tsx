@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { DeviceEventEmitter } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -34,34 +35,12 @@ const MainTabs = () => (
       tabBarActiveTintColor: '#00B4DB',
       tabBarInactiveTintColor: '#94A3B8',
       tabBarLabelStyle: { fontSize: 12, marginBottom: 2, fontWeight: '600' },
-      tabBarStyle: {
-        borderTopWidth: 0,
-        height: 70,
-        paddingBottom: 8,
-        paddingTop: 8,
-        backgroundColor: '#FFFFFF',
-        elevation: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-      },
+      tabBarStyle: { borderTopWidth: 0, height: 70, paddingBottom: 8, paddingTop: 8, backgroundColor: '#FFFFFF', elevation: 10 },
       tabBarIcon: ({ color, size, focused }) => {
-        if (route.name === 'Home') {
-          return <Ionicons name={focused ? 'home' : 'home-outline'} size={size + 1} color={color} />;
-        }
-        if (route.name === 'Matches') {
-          return (
-            <MaterialCommunityIcons
-              name={focused ? 'chat-processing' : 'chat-processing-outline'}
-              size={size + 1}
-              color={color}
-            />
-          );
-        }
+        if (route.name === 'Home') return <Ionicons name={focused ? 'home' : 'home-outline'} size={size + 1} color={color} />;
+        if (route.name === 'Matches') return <MaterialCommunityIcons name={focused ? 'chat-processing' : 'chat-processing-outline'} size={size + 1} color={color} />;
         return <Ionicons name={focused ? 'paw' : 'paw-outline'} size={size + 1} color={color} />;
       },
-      tabBarItemStyle: { paddingVertical: 2 },
     })}
   >
     <Tab.Screen name="Home" component={HomeSwipeScreen} options={{ tabBarLabel: 'Trang chủ' }} />
@@ -75,40 +54,29 @@ const AppNavigator = () => {
   const [hasPetProfile, setHasPetProfile] = useState<boolean>(false);
   const [checkingPet, setCheckingPet] = useState(true);
 
-  useEffect(() => {
-    let alive = true;
-    const checkPet = async () => {
-      try {
-        if (!user) {
-          if (alive) {
-            setHasPetProfile(false);
-            setCheckingPet(false);
-          }
-          return;
-        }
-
-        const pet = await getPetByOwnerId();
-        if (alive) {
-          setHasPetProfile(Boolean(pet));
-        }
-      } catch {
-        if (alive) {
-          setHasPetProfile(false);
-        }
-      } finally {
-        if (alive) {
-          setCheckingPet(false);
-        }
-      }
-    };
-
-    checkPet();
-    return () => { alive = false; };
+  const checkPet = useCallback(async () => {
+    if (!user) {
+      setHasPetProfile(false);
+      setCheckingPet(false);
+      return;
+    }
+    try {
+      const pet = await getPetByOwnerId();
+      setHasPetProfile(Boolean(pet));
+    } catch {
+      setHasPetProfile(false);
+    } finally {
+      setCheckingPet(false);
+    }
   }, [user]);
 
-  if (loading || checkingPet) {
-    return <SplashScreen />;
-  }
+  useEffect(() => {
+    checkPet();
+    const sub = DeviceEventEmitter.addListener('petProfileCreated', checkPet);
+    return () => sub.remove();
+  }, [user, checkPet]);
+
+  if (loading || checkingPet) return <SplashScreen />;
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>

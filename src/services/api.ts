@@ -2,9 +2,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
 
-const API_BASE_URLS = [ENV_API_URL, 'http://10.0.2.2:4000', 'http://127.0.0.1:4000', 'http://localhost:4000'].filter(
-  Boolean
-) as string[];
+const API_BASE_URLS = [
+  ENV_API_URL,
+  'http://10.0.2.2:4000',
+  'http://localhost:4000'
+].filter(Boolean) as string[];
 
 const TOKEN_KEY = 'bossitive_token';
 
@@ -39,11 +41,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     if (token) headers.Authorization = `Bearer ${token}`;
   }
 
-  let lastError: Error | null = null;
+  const TIMEOUT_MS = 5000;
 
   for (const baseUrl of API_BASE_URLS) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const id = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
     try {
       const response = await fetch(`${baseUrl}${path}`, {
@@ -53,38 +55,17 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
         signal: controller.signal,
       });
 
-      const raw = await response.text();
-      let data: unknown = null;
+      clearTimeout(id);
+      if (!response.ok) throw new Error('Fail');
 
-      if (raw) {
-        try {
-          data = JSON.parse(raw);
-        } catch {
-          data = raw;
-        }
-      }
-
-      if (!response.ok) {
-        const message =
-          typeof data === 'object' && data !== null && 'message' in data
-            ? String((data as { message?: string }).message)
-            : `Request failed: ${response.status}`;
-        throw new Error(message);
-      }
-
+      const data = await response.json();
       return data as T;
-    } catch (error: any) {
-      if (error?.name === 'AbortError') {
-        lastError = new Error('Kết nối server quá thời gian chờ. Hãy kiểm tra backend đã chạy chưa.');
-      } else {
-        lastError = new Error(error?.message || 'Không thể kết nối server. Hãy kiểm tra backend và địa chỉ API.');
-      }
-    } finally {
-      clearTimeout(timeout);
+    } catch {
+      clearTimeout(id);
     }
   }
 
-  throw lastError ?? new Error('Không thể kết nối server. Hãy kiểm tra backend và địa chỉ API.');
+  throw new Error('Offline');
 }
 
 export const API_BASE_URL = API_BASE_URLS[0];

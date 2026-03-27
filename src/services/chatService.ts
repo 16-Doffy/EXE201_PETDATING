@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+﻿import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiRequest } from '@/services/api';
 import { ChatMessageModel } from '@/types';
 
@@ -12,9 +12,7 @@ const readLocalMap = async (): Promise<LocalChatMap> => {
     if (!raw) return {};
     const parsed = JSON.parse(raw) as LocalChatMap;
     return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch {
-    return {};
-  }
+  } catch { return {}; }
 };
 
 const writeLocalMap = async (map: LocalChatMap) => {
@@ -23,10 +21,7 @@ const writeLocalMap = async (map: LocalChatMap) => {
 
 export const getMessages = async (matchId: string) => {
   try {
-    const data = await apiRequest<{ messages: ChatMessageModel[] }>(`/chat/${matchId}/messages`, {
-      auth: true,
-    });
-
+    const data = await apiRequest<{ messages: ChatMessageModel[] }>(/chat//messages, { auth: true });
     const localMap = await readLocalMap();
     const local = localMap[matchId] ?? [];
     return [...data.messages, ...local].sort((a, b) => a.createdAt - b.createdAt);
@@ -38,17 +33,14 @@ export const getMessages = async (matchId: string) => {
 
 export const sendMessage = async (matchId: string, text: string, senderPetId = 'me') => {
   const fallbackMessage: ChatMessageModel = {
-    id: `local-${Date.now()}`,
+    id: local-,
     senderPetId,
     text,
     createdAt: Date.now(),
   };
-
   try {
-    const data = await apiRequest<{ message: ChatMessageModel }>(`/chat/${matchId}/messages`, {
-      method: 'POST',
-      auth: true,
-      body: { text },
+    const data = await apiRequest<{ message: ChatMessageModel }>(/chat//messages, {
+      method: 'POST', auth: true, body: { text },
     });
     return data.message;
   } catch {
