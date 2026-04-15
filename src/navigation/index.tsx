@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { DeviceEventEmitter } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -15,6 +15,7 @@ import ProfileScreen from '@/screens/ProfileScreen';
 import PetDetailScreen from '@/screens/PetDetailScreen';
 import ChatScreen from '@/screens/ChatScreen';
 import HealthInfoScreen from '@/screens/HealthInfoScreen';
+import PaymentScreen from '@/screens/PaymentScreen';
 import MyProfileScreen from '@/screens/MyProfileScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
 import PrivacyPolicyScreen from '@/screens/PrivacyPolicyScreen';
@@ -22,11 +23,14 @@ import LegalTermScreen from '@/screens/LegalTermScreen';
 import AboutAppScreen from '@/screens/AboutAppScreen';
 import FaqScreen from '@/screens/FaqScreen';
 import FilterScreen from '@/screens/FilterScreen';
+import AdminDashboardScreen from '@/screens/AdminDashboardScreen';
 import { useAuth } from '@/hooks/useAuth';
 import { getPetByOwnerId } from '@/services/petService';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
+
+const LOCAL_PET_KEY = 'bossitive_local_pet_profile';
 
 const MainTabs = () => (
   <Tab.Navigator
@@ -51,32 +55,33 @@ const MainTabs = () => (
 
 const AppNavigator = () => {
   const { user, loading } = useAuth();
-  const [hasPetProfile, setHasPetProfile] = useState<boolean>(false);
-  const [checkingPet, setCheckingPet] = useState(true);
+  const [hasPetProfile, setHasPetProfile] = useState<boolean | null>(null);
 
   const checkPet = useCallback(async () => {
     if (!user) {
       setHasPetProfile(false);
-      setCheckingPet(false);
       return;
     }
+    // 1. Đọc local trước — nhanh, không cần API
+    const local = await AsyncStorage.getItem(LOCAL_PET_KEY).catch(() => null);
+    if (local) {
+      setHasPetProfile(true);
+      return;
+    }
+    // 2. Local không có → thử hỏi server
     try {
       const pet = await getPetByOwnerId();
       setHasPetProfile(Boolean(pet));
     } catch {
       setHasPetProfile(false);
-    } finally {
-      setCheckingPet(false);
     }
   }, [user]);
 
   useEffect(() => {
     checkPet();
-    const sub = DeviceEventEmitter.addListener('petProfileCreated', checkPet);
-    return () => sub.remove();
-  }, [user, checkPet]);
+  }, [checkPet]);
 
-  if (loading || checkingPet) return <SplashScreen />;
+  if (loading || hasPetProfile === null) return <SplashScreen />;
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -94,6 +99,7 @@ const AppNavigator = () => {
           <Stack.Screen name="PetDetail" component={PetDetailScreen} />
           <Stack.Screen name="Chat" component={ChatScreen} />
           <Stack.Screen name="HealthInfo" component={HealthInfoScreen} />
+          <Stack.Screen name="Payment" component={PaymentScreen} />
           <Stack.Screen name="MyProfile" component={MyProfileScreen} />
           <Stack.Screen name="Settings" component={SettingsScreen} />
           <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
@@ -101,6 +107,7 @@ const AppNavigator = () => {
           <Stack.Screen name="AboutApp" component={AboutAppScreen} />
           <Stack.Screen name="FAQ" component={FaqScreen} />
           <Stack.Screen name="Filter" component={FilterScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
         </>
       )}
     </Stack.Navigator>

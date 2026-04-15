@@ -85,7 +85,7 @@ const LoginScreen = ({ navigation }: Props) => {
                 <View className="flex-1 h-[1px] bg-gray-200" />
             </View>
 
-            <View className="flex-row justify-between mb-10">
+            {/* <View className="flex-row justify-between mb-10">
                 <PrimaryButton
                     title="GOOGLE"
                     variant="secondary"
@@ -100,7 +100,7 @@ const LoginScreen = ({ navigation }: Props) => {
                     textClassName="text-textMain text-sm"
                     onPress={() => {}}
                 />
-            </View>
+            </View> */}
 
             <TouchableOpacity onPress={() => navigation.navigate('Register')}>
               <Text className="text-center text-textSub">

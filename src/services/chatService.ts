@@ -12,41 +12,66 @@ const readLocalMap = async (): Promise<LocalChatMap> => {
     if (!raw) return {};
     const parsed = JSON.parse(raw) as LocalChatMap;
     return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch { return {}; }
+  } catch {
+    return {};
+  }
 };
 
 const writeLocalMap = async (map: LocalChatMap) => {
   await AsyncStorage.setItem(LOCAL_CHAT_KEY, JSON.stringify(map));
 };
 
-export const getMessages = async (matchId: string) => {
+export const getMessages = async (matchId: string): Promise<ChatMessageModel[]> => {
   try {
-    const data = await apiRequest<{ messages: ChatMessageModel[] }>(/chat//messages, { auth: true });
+    const data = await apiRequest<{ messages: ChatMessageModel[] }>(
+      `/chat/${matchId}/messages`,
+      { auth: true }
+    );
+
     const localMap = await readLocalMap();
     const local = localMap[matchId] ?? [];
-    return [...data.messages, ...local].sort((a, b) => a.createdAt - b.createdAt);
+
+    return [...(data.messages || []), ...local].sort(
+      (a, b) => a.createdAt - b.createdAt
+    );
   } catch {
     const localMap = await readLocalMap();
     return localMap[matchId] ?? [];
   }
 };
 
-export const sendMessage = async (matchId: string, text: string, senderPetId = 'me') => {
+export const sendMessage = async (
+  matchId: string,
+  text: string,
+  senderPetId = 'me'
+): Promise<ChatMessageModel> => {
   const fallbackMessage: ChatMessageModel = {
-    id: local-,
+    id: `local-${Date.now()}`,
     senderPetId,
     text,
     createdAt: Date.now(),
   };
+
   try {
-    const data = await apiRequest<{ message: ChatMessageModel }>(/chat//messages, {
-      method: 'POST', auth: true, body: { text },
-    });
+    const data = await apiRequest<{ message: ChatMessageModel }>(
+      `/chat/${matchId}/messages`,
+      {
+        method: 'POST',
+        auth: true,
+        body: { text },
+      }
+    );
+
     return data.message;
   } catch {
     const localMap = await readLocalMap();
     const current = localMap[matchId] ?? [];
-    await writeLocalMap({ ...localMap, [matchId]: [...current, fallbackMessage] });
+
+    await writeLocalMap({
+      ...localMap,
+      [matchId]: [...current, fallbackMessage],
+    });
+
     return fallbackMessage;
   }
 };

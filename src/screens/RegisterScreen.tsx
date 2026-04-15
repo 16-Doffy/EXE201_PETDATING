@@ -20,7 +20,7 @@ const RegisterScreen = ({ navigation }: Props) => {
           <Text className="text-center text-textSub mb-14 font-medium">Tạo tài khoản mới để bắt đầu</Text>
 
           <PrimaryButton
-            title="ĐĂNG KÝ BẰNG EMAIL / SĐT"
+            title="ĐĂNG KÝ BẰNG EMAIL"
             className="mb-6 shadow-lg shadow-primary/30"
             onPress={() => navigation.navigate('PhoneRegister')}
           />
@@ -31,7 +31,7 @@ const RegisterScreen = ({ navigation }: Props) => {
             <View className="flex-1 h-[1px] bg-gray-200" />
           </View>
 
-          <PrimaryButton
+          {/* <PrimaryButton
             title="LIÊN KẾT TÀI KHOẢN GOOGLE"
             variant="secondary"
             className="mb-4"
@@ -45,7 +45,7 @@ const RegisterScreen = ({ navigation }: Props) => {
             className="mb-10"
             textClassName="text-textMain text-base"
             onPress={() => {}}
-          />
+          /> */}
 
           <TouchableOpacity onPress={() => navigation.navigate('Login')}>
             <Text className="text-center text-textSub">

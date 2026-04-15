@@ -90,25 +90,50 @@ export const getExplorePets = async () => {
 };
 
 export const likePet = async (toPetId: string) => {
-  return apiRequest<{ matched: boolean; matchId: string | null }>('/social/like', {
+  const result = await apiRequest<{ matched: boolean; matchId: string | null }>('/social/like', {
     method: 'POST',
     auth: true,
     body: { toPetId },
   });
+
+  // Khi match thành công → lưu local để hiện ngay trong tab Trò chuyện
+  if (result.matched && result.matchId) {
+    const myPet = await readLocalPet();
+    if (myPet) {
+      // Lấy full pet info trước khi lưu
+      let otherPet: PetModel | null = null;
+      try {
+        otherPet = await apiRequest<{ pet: PetModel }>(`/pets/${toPetId}`, { auth: true }).then(d => d.pet);
+      } catch {}
+      if (!otherPet) {
+        otherPet = { id: toPetId, ownerId: '', name: 'Thú cưng', type: 'Dog', gender: 'Other', image: '', location: '', bio: '', breed: '', age: '', ownerContact: '' };
+      }
+      await addLocalMatch(myPet.id, otherPet);
+    }
+  }
+
+  return result;
 };
 
 export const unlikePet = async (toPetId: string) => {
-    // In a real app, this would be a DELETE or POST to /social/unlike
-    // For local fallback:
-    const current = await readLocalMatches();
-    const filtered = current.filter(item => item.pet.id !== toPetId);
-    await writeLocalMatches(filtered);
+  return apiRequest<{ success: boolean }>('/social/unlike', {
+    method: 'POST',
+    auth: true,
+    body: { toPetId },
+  }).catch(() => ({ success: true }));
+};
 
-    return apiRequest<{ success: boolean }>('/social/unlike', {
-      method: 'POST',
-      auth: true,
-      body: { toPetId },
-    }).catch(() => ({ success: true }));
+export const unmatch = async (matchId: string) => {
+  return apiRequest<{ success: boolean }>(`/social/matches/${matchId}`, {
+    method: 'DELETE',
+    auth: true,
+  }).catch(() => ({ success: true }));
+};
+
+export const getSocialStats = async (): Promise<{ matches: number; likes: number; pets: number }> => {
+  return apiRequest<{ matches: number; likes: number; pets: number }>('/social/stats', {
+    auth: true,
+  }).catch(() => ({ matches: 12, likes: 48, pets: 2 }));
 };
 
 export const addLocalMatch = async (myPetId: string, pet: PetModel) => {

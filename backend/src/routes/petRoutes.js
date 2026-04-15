@@ -54,32 +54,72 @@ router.get('/:petId', auth, async (req, res) => {
   }
 });
 
-// SEED DATA: 2 CHÓ, 2 MÈO
+// SEED DATA: 6 TÀI KHOẢN + 6 PET ĐA DẠNG
 router.post('/seed/demo', async (_req, res) => {
   try {
-    await Promise.all([Pet.deleteMany({}), User.deleteMany({}), Match.deleteMany({}), Message.deleteMany({})]);
+    // KHÔNG xóa dữ liệu cũ — chỉ tạo thêm nếu chưa có
+    const existingPets = await Pet.countDocuments();
+    if (existingPets > 0) {
+      return res.json({ ok: true, message: `Đã có ${existingPets} pet trong DB, bỏ qua seed.` });
+    }
 
     const passwordHash = await bcrypt.hash('123456', 10);
+
     const owners = await User.insertMany([
-      { email: 'dog1@test.com', passwordHash },
-      { email: 'dog2@test.com', passwordHash },
-      { email: 'cat1@test.com', passwordHash },
-      { email: 'cat2@test.com', passwordHash },
+      { email: 'minh@bossitive.app', passwordHash },
+      { email: 'lan@bossitive.app', passwordHash },
+      { email: 'thao@bossitive.app', passwordHash },
+      { email: 'khoa@bossitive.app', passwordHash },
+      { email: 'mai@bossitive.app', passwordHash },
+      { email: 'hung@bossitive.app', passwordHash },
     ]);
 
     const pets = await Pet.insertMany([
-      { ownerId: owners[0]._id, name: 'Lu (Corgi)', age: '2 tuổi', breed: 'Corgi', type: 'Dog', gender: 'Male', location: 'Quận 1', bio: 'Ham chơi.', image: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b', ownerContact: '091' },
-      { ownerId: owners[1]._id, name: 'Ki (Poodle)', age: '1 tuổi', breed: 'Poodle', type: 'Dog', gender: 'Female', location: 'Quận 7', bio: 'Thông minh.', image: 'https://images.unsplash.com/photo-1516734212186-a967f81ad0d7', ownerContact: '092' },
-      { ownerId: owners[2]._id, name: 'Mimi (Mèo Anh)', age: '3 tuổi', breed: 'Mèo Anh', type: 'Cat', gender: 'Female', location: 'Bình Thạnh', bio: 'Lười biếng.', image: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba', ownerContact: '093' },
-      { ownerId: owners[3]._id, name: 'Mít (Mèo Mướp)', age: '2 tuổi', breed: 'Mèo Mướp', type: 'Cat', gender: 'Male', location: 'Thủ Đức', bio: 'Dễ nuôi.', image: 'https://images.unsplash.com/photo-1519052537078-e6302a4968d4', ownerContact: '094' }
+      {
+        ownerId: owners[0]._id, name: 'Milo', age: '2 tuổi', breed: 'Corgi',
+        type: 'Dog', gender: 'Male', location: 'Quận 1, HCM',
+        bio: 'Milo thích đi dạo công viên và chơi đùa với các bé khác!',
+        image: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600',
+        ownerContact: '0901234567',
+      },
+      {
+        ownerId: owners[1]._id, name: 'Luna', age: '1.5 tuổi', breed: 'Poodle',
+        type: 'Dog', gender: 'Female', location: 'Quận 7, HCM',
+        bio: 'Luna rất thông minh, biết ngồi và bắt bóng.',
+        image: 'https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?w=600',
+        ownerContact: '0902345678',
+      },
+      {
+        ownerId: owners[2]._id, name: 'Buddy', age: '3 tuổi', breed: 'Golden Retriever',
+        type: 'Dog', gender: 'Male', location: 'Đống Đa, HN',
+        bio: 'Buddy thân thiện, yêu trẻ em và rất trung thành.',
+        image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=600',
+        ownerContact: '0903456789',
+      },
+      {
+        ownerId: owners[3]._id, name: 'Mimi', age: '2 tuổi', breed: 'Mèo Anh',
+        type: 'Cat', gender: 'Female', location: 'Bình Thạnh, HCM',
+        bio: 'Mimi điệu đà, thích nằm cạnh cửa sổ ngắm mây.',
+        image: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600',
+        ownerContact: '0904567890',
+      },
+      {
+        ownerId: owners[4]._id, name: 'Mít', age: '1 tuổi', breed: 'Mèo Mướp',
+        type: 'Cat', gender: 'Male', location: 'Thủ Đức, HCM',
+        bio: 'Mít nghịch ngợm, leo trèo tốt và rất hiếu động.',
+        image: 'https://images.unsplash.com/photo-1519052537078-e6302a4968d4?w=600',
+        ownerContact: '0905678901',
+      },
+      {
+        ownerId: owners[5]._id, name: 'Mochi', age: '2.5 tuổi', breed: 'Scottish Fold',
+        type: 'Cat', gender: 'Female', location: 'Ba Đình, HN',
+        bio: 'Mochi dễ thương với đôi tai cụp, thích ôm ấm.',
+        image: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?w=600',
+        ownerContact: '0906789012',
+      },
     ]);
 
-    // Tạo Match mẫu giữa Lu và Ki
-    const pair = [pets[0]._id.toString(), pets[1]._id.toString()].sort();
-    const match = await Match.create({ pet1: pair[0], pet2: pair[1], createdAt: Date.now() });
-    await Message.create({ matchId: match._id, senderPetId: pets[0]._id, text: 'Gâu gâu!', createdAt: Date.now() });
-
-    res.json({ ok: true, message: 'Đã tạo 2 Chó, 2 Mèo thành công!' });
+    res.json({ ok: true, message: `Đã tạo ${pets.length} pet mẫu thành công! Đăng nhập: email bất kỳ + pass 123456` });
   } catch (error) {
     res.status(500).json({ message: 'Seed failed', error: error.message });
   }

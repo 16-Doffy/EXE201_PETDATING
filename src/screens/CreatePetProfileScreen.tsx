@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
   SafeAreaView,
-  DeviceEventEmitter,
+  ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { createPetProfile } from '@/services/petService';
@@ -16,10 +16,11 @@ import PrimaryButton from '@/components/ui/PrimaryButton';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getRandomImage } from '@/constants/images';
+import { CommonActions } from '@react-navigation/native';
 
 const personalityOptions = ['Thân thiện', 'Nghịch ngợm', 'Hiền lành', 'Lanh lợi', 'Dễ gần'];
 
-const CreatePetProfileScreen = () => {
+const CreatePetProfileScreen = ({ navigation }: any) => {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [breed, setBreed] = useState('');
@@ -75,10 +76,23 @@ const CreatePetProfileScreen = () => {
         ownerContact,
       });
 
-      // PHÁT TÍN HIỆU ĐỂ APPNAVIGATOR CHUYỂN TRANG
-      DeviceEventEmitter.emit('petProfileCreated');
-
-      Alert.alert('Thành công', 'Hồ sơ thú cưng đã được tạo!');
+      Alert.alert(
+        '🎉 Tạo hồ sơ thành công!',
+        `Hồ sơ của ${name} đã được tạo. Vào Trang chủ để xem và kết nối với thú cưng khác nhé!`,
+        [
+          {
+            text: 'Vào Trang chủ',
+            onPress: () => {
+              navigation.dispatch(
+                CommonActions.reset({
+                  index: 0,
+                  routes: [{ name: 'MainTabs', params: { screen: 'Home' } }],
+                })
+              );
+            },
+          },
+        ]
+      );
     } catch (error: any) {
       Alert.alert('Lỗi', error.message);
     } finally {

@@ -2,10 +2,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
 
+// Web/mobile: localhost:4000 first, Android emulator: 10.0.2.2 fallback
 const API_BASE_URLS = [
-  ENV_API_URL,
+  'http://localhost:4000',
   'http://10.0.2.2:4000',
-  'http://localhost:4000'
+  ENV_API_URL,
 ].filter(Boolean) as string[];
 
 const TOKEN_KEY = 'bossitive_token';

@@ -5,6 +5,7 @@ export type RootStackParamList = {
   PhoneRegister: undefined;
   CreatePetProfile: undefined;
   HealthInfo: undefined;
+  Payment: undefined;
   MyProfile: undefined;
   Settings: undefined;
   PrivacyPolicy: undefined;
@@ -15,6 +16,7 @@ export type RootStackParamList = {
   PetDetail: { petId: string };
   Chat: { matchId: string; otherPetName: string; otherPetId?: string };
   Filter: undefined;
+  AdminDashboard: undefined;
 };
 
 export type MainTabParamList = {
@@ -57,4 +59,7 @@ export type ChatMessageModel = {
   senderPetId: string;
   text: string;
   createdAt: number;
+  type?: 'text' | 'image' | 'sticker';
+  image?: string;
+  seen?: boolean;
 };

@@ -1,17 +1,24 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Image, Text, TextInput, TouchableOpacity, View, ScrollView,
-  FlatList
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { CompositeScreenProps } from '@react-navigation/native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CompositeScreenProps, useFocusEffect } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { MainTabParamList, MatchModel, PetModel, RootStackParamList } from '@/types';
 import { getLocalMatches, getMatches, getPetById, getPetByOwnerId } from '@/services/petService';
 import { getMessages } from '@/services/chatService';
-import { LinearGradient } from 'expo-linear-gradient';
 import { getRandomImage } from '@/constants/images';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -28,85 +35,210 @@ type ChatPreview = {
   unreadCount: number;
 };
 
+// ─── Helpers ───────────────────────────────────────────────────────────────
+
+const formatTime = (ts: number) => {
+  const d = new Date(ts);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffMins < 1) return 'Bây giờ';
+  if (diffMins < 60) return `${diffMins}p`;
+  if (diffHours < 24) return `${diffHours}h`;
+  if (diffDays < 7) return `${diffDays}ngày`;
+  return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+};
+
+const getInitials = (name: string) => {
+  return name
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+};
+
+// ─── Story Avatar ───────────────────────────────────────────────────────────
+
+const StoryAvatar = ({
+  item,
+  onPress,
+  isOnline = true,
+}: {
+  item: ChatPreview;
+  onPress: () => void;
+  isOnline?: boolean;
+}) => (
+  <TouchableOpacity onPress={onPress} className="items-center mr-4">
+    <View className="w-16 h-16 rounded-full p-0.5" style={{ backgroundColor: '#0084FF' }}>
+      <Image
+        source={{ uri: item.otherPet.image || getRandomImage(item.otherPet.type || 'Dog', item.otherPet.id) }}
+        className="w-full h-full rounded-full"
+      />
+      {isOnline && (
+        <View className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-[#0084FF]" />
+      )}
+    </View>
+    <Text className="text-[11px] mt-1 text-gray-300 text-center w-16" numberOfLines={1}>
+      {item.otherPet.name}
+    </Text>
+  </TouchableOpacity>
+);
+
+// ─── Chat List Item ────────────────────────────────────────────────────────
+
+const ChatListItem = ({
+  item,
+  onPress,
+}: {
+  item: ChatPreview;
+  onPress: () => void;
+}) => {
+  const hasUnread = item.unreadCount > 0;
+
+  return (
+    <TouchableOpacity
+      className="flex-row items-center px-4 py-3 active:bg-white/10"
+      onPress={onPress}
+    >
+      {/* Avatar */}
+      <View className="relative">
+        <View className="w-14 h-14 rounded-full overflow-hidden bg-[#3a3a3a] items-center justify-center">
+          <Image
+            source={{ uri: item.otherPet.image || getRandomImage(item.otherPet.type || 'Dog', item.otherPet.id) }}
+            className="w-full h-full"
+          />
+        </View>
+        <View className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-[#1a1a1a]" />
+      </View>
+
+      {/* Content */}
+      <View className="flex-1 ml-3 border-b border-white/5 pb-3">
+        <View className="flex-row justify-between items-center">
+          <Text
+            className={`text-[15px] font-semibold flex-1 mr-2 ${hasUnread ? 'text-white' : 'text-gray-400'}`}
+            numberOfLines={1}
+          >
+            {item.otherPet.name}
+          </Text>
+          <Text className="text-[12px] text-gray-500">{formatTime(item.lastMessageTime)}</Text>
+        </View>
+        <View className="flex-row justify-between items-center mt-0.5">
+          <Text
+            className={`text-[13px] flex-1 mr-2 ${hasUnread ? 'text-gray-200 font-medium' : 'text-gray-500'}`}
+            numberOfLines={1}
+          >
+            {item.lastMessage}
+          </Text>
+          {hasUnread && (
+            <View className="bg-[#0084FF] rounded-full min-w-[20px] h-5 items-center justify-center px-1.5">
+              <Text className="text-white text-[11px] font-bold">
+                {item.unreadCount > 9 ? '9+' : item.unreadCount}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// ─── MatchesScreen ─────────────────────────────────────────────────────────
+
 const MatchesScreen = ({ navigation }: Props) => {
   const [myPet, setMyPet] = useState<PetModel | null>(null);
   const [matches, setMatches] = useState<ChatPreview[]>([]);
   const [keyword, setKeyword] = useState('');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const listRef = useRef<ScrollView>(null);
 
-  const loadMatches = useCallback(async () => {
-    setLoading(true);
+  const loadMatches = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+
     try {
+      // Lấy pet của mình TRƯỚC
       const pet = await getPetByOwnerId();
       setMyPet(pet);
 
-      const [serverMatches, localMatches] = await Promise.all([
-        getMatches().catch(() => []),
+      // Gọi server + local song song
+      const [serverMatchesRaw, localMatches] = await Promise.all([
+        getMatches().catch(() => [] as MatchModel[]),
         getLocalMatches(),
       ]);
 
-      const serverMatchList = serverMatches as MatchModel[];
-      const localMatchList = localMatches.map((item: { match: MatchModel; pet: PetModel }) => item);
+      const serverMatchList = serverMatchesRaw as MatchModel[];
+      const localList = localMatches.map((item: { match: MatchModel; pet: PetModel }) => item);
+      const merged = new Map<string, ChatPreview>();
 
-      const mergedMap = new Map<string, ChatPreview>();
-
-      // Process local matches first
-      for (const item of localMatchList) {
-        const otherId = item.match.pet1 === myPet?.id ? item.match.pet2 : item.match.pet1;
-        const lastMsg = `Da bat dau cuoc tro chuyen voi ${item.pet.name}`;
-        mergedMap.set(item.match.id, {
-          match: item.match,
-          otherPet: item.pet,
-          lastMessage: lastMsg,
-          lastMessageTime: item.match.createdAt,
-          unreadCount: 0,
-        });
-      }
-
-      // Override/append server matches
-      for (const match of serverMatchList) {
-        const otherId = match.pet1 === myPet?.id ? match.pet2 : match.pet1;
-        try {
+      // Xử lý server matches (ưu tiên cao hơn local)
+      await Promise.allSettled(
+        serverMatchList.map(async (match) => {
+          const otherId = match.pet1 === pet?.id ? match.pet2 : match.pet1;
           const otherPet = await getPetById(otherId);
-          if (!otherPet) continue;
+          if (!otherPet) return;
 
-          let lastMsg = 'Bat dau cuoc tro chuyen';
-          let lastTime = match.createdAt;
+          let lastMsg = 'Bắt đầu cuộc trò chuyện';
+          let lastTime = match.createdAt || Date.now();
           let unread = 0;
 
           try {
             const msgs = await getMessages(match.id);
             if (msgs.length > 0) {
-              lastMsg = msgs[msgs.length - 1].text;
-              lastTime = msgs[msgs.length - 1].createdAt;
-              unread = msgs.filter(m => m.senderPetId !== myPet?.id && m.createdAt > Date.now() - 86400000).length;
+              const last = msgs[msgs.length - 1];
+              lastMsg = last.text;
+              lastTime = last.createdAt || Date.now();
+              unread = msgs.filter(
+                (m) => m.senderPetId !== pet?.id && (m.createdAt || 0) > Date.now() - 86400000
+              ).length;
             }
           } catch {}
 
-          mergedMap.set(match.id, {
+          merged.set(match.id, {
             match,
             otherPet,
             lastMessage: lastMsg,
             lastMessageTime: lastTime,
             unreadCount: unread,
           });
-        } catch {}
+        })
+      );
+
+      // Xử lý local matches (chỉ khi server chưa có)
+      for (const item of localList) {
+        if (merged.has(item.match.id)) continue;
+        merged.set(item.match.id, {
+          match: item.match,
+          otherPet: item.pet,
+          lastMessage: `Bắt đầu cuộc trò chuyện với ${item.pet.name}`,
+          lastMessageTime: item.match.createdAt || Date.now(),
+          unreadCount: 0,
+        });
       }
 
-      const all = Array.from(mergedMap.values());
-      all.sort((a, b) => b.lastMessageTime - a.lastMessageTime);
+      const all = Array.from(merged.values()).sort(
+        (a, b) => b.lastMessageTime - a.lastMessageTime
+      );
+
       setMatches(all);
-    } catch {
+    } catch (err) {
+      console.error('[Matches] Lỗi loadMatches:', err);
       setMatches([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', loadMatches);
-    return unsubscribe;
-  }, [navigation, loadMatches]);
+  // Reload khi tab Matches được focus
+  useFocusEffect(
+    useCallback(() => {
+      loadMatches();
+    }, [loadMatches])
+  );
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -116,186 +248,154 @@ const MatchesScreen = ({ navigation }: Props) => {
       quality: 0.7,
     });
     if (!result.canceled) {
-      Alert.alert('Thanh cong', 'Da cap nhat anh dai dien moi!');
+      Alert.alert('Thành công', 'Đã cập nhật ảnh đại diện mới!');
     }
   };
 
   const filtered = useMemo(() => {
     if (!keyword.trim()) return matches;
     const q = keyword.toLowerCase().trim();
-    return matches.filter(item => item.otherPet.name.toLowerCase().includes(q));
+    return matches.filter((item) =>
+      item.otherPet.name.toLowerCase().includes(q)
+    );
   }, [keyword, matches]);
 
-  const formatTime = (ts: number) => {
-    const now = Date.now();
-    const diff = now - ts;
-    if (diff < 60000) return 'Vua xong';
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}p`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h`;
-    if (diff < 604800000) return `${Math.floor(diff / 86400000)}d`;
-    return new Date(ts).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
-  };
-
-  const renderItem = ({ item }: { item: ChatPreview }) => (
-    <TouchableOpacity
-      className="flex-row items-center px-4 py-3 border-b border-gray-50 active:bg-gray-50"
-      onPress={() => navigation.navigate('Chat', {
-        matchId: item.match.id,
-        otherPetName: item.otherPet.name,
-        otherPetId: item.otherPet.id,
-      })}
-    >
-      {/* Avatar */}
-      <View className="relative">
-        <Image
-          source={{ uri: item.otherPet.image || getRandomImage(item.otherPet.type || 'Dog', item.otherPet.id) }}
-          className="w-16 h-16 rounded-full bg-gray-100"
-        />
-        <View className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white" />
-        {item.unreadCount > 0 && (
-          <View className="absolute -top-1 -right-1 bg-red-500 rounded-full w-5 h-5 items-center justify-center">
-            <Text className="text-white text-[10px] font-bold">{item.unreadCount > 9 ? '9+' : item.unreadCount}</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Content */}
-      <View className="flex-1 ml-4">
-        <View className="flex-row justify-between items-center">
-          <Text className={`text-base font-bold ${item.unreadCount > 0 ? 'text-textMain' : 'text-gray-600'}`}>
-            {item.otherPet.name}
-          </Text>
-          <Text className="text-xs text-gray-400">{formatTime(item.lastMessageTime)}</Text>
-        </View>
-        <View className="flex-row justify-between items-center mt-0.5">
-          <Text
-            className={`text-sm flex-1 ${item.unreadCount > 0 ? 'text-gray-700 font-medium' : 'text-gray-400'}`}
-            numberOfLines={1}
-          >
-            {item.lastMessage}
-          </Text>
-          {item.unreadCount > 0 && (
-            <View className="ml-2 bg-[#00B4DB] rounded-full w-5 h-5 items-center justify-center">
-              <Text className="text-white text-[10px] font-bold">{item.unreadCount > 9 ? '9+' : item.unreadCount}</Text>
-            </View>
-          )}
-        </View>
-        {/* Pet info subtitle */}
-        <Text className="text-xs text-gray-300 mt-0.5">{item.otherPet.breed} - {item.otherPet.location}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <LinearGradient colors={['#E0EAFC', '#FFFFFF']} className="absolute inset-0" />
+    <SafeAreaView className="flex-1" style={{ backgroundColor: '#1a1a1a' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#1a1a1a" />
 
-      {/* Header - Messenger style */}
-      <View className="px-4 py-3 flex-row justify-between items-center">
+      {/* ── Header ── */}
+      <View className="px-4 pt-2 pb-3 flex-row justify-between items-center">
         <View className="flex-row items-center">
-          <TouchableOpacity onPress={pickImage} className="relative">
-            <Image
-              source={{ uri: myPet?.image || getRandomImage('Dog', 'me') }}
-              className="w-10 h-10 rounded-full border-2 border-[#00B4DB] bg-gray-100"
-            />
-            <View className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white" />
+          <TouchableOpacity onPress={pickImage}>
+            <View className="relative">
+              <View className="w-11 h-11 rounded-full bg-[#3a3a3a] items-center justify-center">
+                <Text className="text-white font-bold text-sm">
+                  {myPet ? getInitials(myPet.name) : '🐾'}
+                </Text>
+              </View>
+              <View className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-[#1a1a1a]" />
+            </View>
           </TouchableOpacity>
-          <Text className="ml-3 text-2xl font-bold text-textMain">Doan chat</Text>
+          <Text className="ml-3 text-xl font-bold text-white">Đoạn chat</Text>
         </View>
-        <View className="flex-row">
-          <TouchableOpacity className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center ml-2">
-            <Ionicons name="camera" size={20} color="#1E293B" />
+
+        <View className="flex-row items-center">
+          <TouchableOpacity
+            className="w-10 h-10 rounded-full items-center justify-center"
+            onPress={() => loadMatches(true)}
+          >
+            <Ionicons name="reload" size={20} color="#8e8e93" />
           </TouchableOpacity>
-          <TouchableOpacity className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center ml-2">
-            <Feather name="edit" size={20} color="#1E293B" />
+          <TouchableOpacity className="w-10 h-10 rounded-full items-center justify-center">
+            <Ionicons name="chatbubble-ellipses" size={20} color="#8e8e93" />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Search Bar */}
+      {/* ── Search ── */}
       <View className="px-4 pb-3">
-        <View className="bg-gray-100 rounded-2xl px-4 py-2.5 flex-row items-center">
-          <Ionicons name="search" size={18} color="#94A3B8" />
+        <View className="bg-[#2c2c2e] rounded-2xl px-4 py-2.5 flex-row items-center">
+          <Ionicons name="search" size={16} color="#8e8e93" />
           <TextInput
             value={keyword}
             onChangeText={setKeyword}
-            placeholder="Tìm kiem"
-            placeholderTextColor="#94A3B8"
-            className="ml-2 flex-1 text-[15px] text-textMain"
+            placeholder="Tìm kiếm"
+            placeholderTextColor="#8e8e93"
+            className="ml-2 flex-1 text-[15px] text-white"
+            style={{ color: '#fff' }}
           />
           {keyword.length > 0 && (
             <TouchableOpacity onPress={() => setKeyword('')}>
-              <Ionicons name="close-circle" size={18} color="#94A3B8" />
+              <Ionicons name="close-circle" size={16} color="#8e8e93" />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#00B4DB" className="mt-10" />
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#0084FF" />
+          <Text className="text-gray-500 mt-3 text-sm">Đang tải cuộc trò chuyện...</Text>
+        </View>
       ) : (
         <>
-          {/* Stories Row */}
+          {/* ── Stories ── */}
           {matches.length > 0 && (
-            <View className="px-4 pb-3 border-b border-gray-100">
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View className="pb-3">
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: 16 }}
+              >
                 {/* Your Story */}
-                <TouchableOpacity onPress={pickImage} className="items-center mr-4">
-                  <View className="w-16 h-16 rounded-full bg-gray-100 items-center justify-center border-2 border-dashed border-gray-300">
-                    <Ionicons name="add" size={28} color="#94A3B8" />
+                <TouchableOpacity onPress={pickImage} className="items-center mr-5">
+                  <View className="w-16 h-16 rounded-full bg-[#2c2c2e] items-center justify-center border-2 border-dashed border-[#3a3a3a]">
+                    <Ionicons name="add" size={28} color="#8e8e93" />
                   </View>
-                  <Text className="text-[11px] mt-1 text-textSub">Tin cua ban</Text>
+                  <Text className="text-[11px] mt-1 text-gray-500">Tin của bạn</Text>
                 </TouchableOpacity>
 
-                {/* Match Stories */}
-                {matches.map(item => (
-                  <TouchableOpacity
+                {matches.map((item) => (
+                  <StoryAvatar
                     key={`story-${item.match.id}`}
-                    className="items-center mr-4"
-                    onPress={() => navigation.navigate('Chat', {
-                      matchId: item.match.id,
-                      otherPetName: item.otherPet.name,
-                      otherPetId: item.otherPet.id,
-                    })}
-                  >
-                    <View className="relative">
-                      <Image
-                        source={{ uri: item.otherPet.image || getRandomImage(item.otherPet.type || 'Dog', item.otherPet.id) }}
-                        className="w-16 h-16 rounded-full border-2 border-[#00B4DB] p-0.5 bg-white"
-                      />
-                      <View className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white" />
-                    </View>
-                    <Text className="text-[11px] mt-1 text-textMain font-medium" numberOfLines={1}>{item.otherPet.name}</Text>
-                  </TouchableOpacity>
+                    item={item}
+                    onPress={() =>
+                      navigation.navigate('Chat', {
+                        matchId: item.match.id,
+                        otherPetName: item.otherPet.name,
+                        otherPetId: item.otherPet.id,
+                      })
+                    }
+                  />
                 ))}
               </ScrollView>
             </View>
           )}
 
-          {/* Chat List */}
-          <FlatList
-            data={filtered}
-            keyExtractor={item => item.match.id}
-            renderItem={renderItem}
-            contentContainerStyle={filtered.length === 0 ? { flex: 1 } : undefined}
-            ListEmptyComponent={
-              <View className="flex-1 items-center justify-center px-8">
-                <MaterialCommunityIcons name="facebook-messenger" size={80} color="#CBD5E1" />
-                <Text className="text-xl font-bold text-gray-400 mt-4 text-center">
-                  Chua co cuoc tro chuyen nao.
+          {/* ── Chat List ── */}
+          <ScrollView
+            ref={listRef as any}
+            style={{ flex: 1 }}
+            contentContainerStyle={
+              filtered.length === 0 ? { flex: 1 } : undefined
+            }
+            onContentSizeChange={() => listRef.current?.scrollTo({ y: 0, animated: false })}
+          >
+            {filtered.length > 0 ? (
+              filtered.map((item) => (
+                <ChatListItem
+                  key={item.match.id}
+                  item={item}
+                  onPress={() =>
+                    navigation.navigate('Chat', {
+                      matchId: item.match.id,
+                      otherPetName: item.otherPet.name,
+                      otherPetId: item.otherPet.id,
+                    })
+                  }
+                />
+              ))
+            ) : (
+              <View className="flex-1 items-center justify-center px-8 py-20">
+                <View className="w-24 h-24 rounded-full bg-[#2c2c2e] items-center justify-center mb-6">
+                  <Ionicons name="chatbubbles-outline" size={44} color="#555" />
+                </View>
+                <Text className="text-xl font-semibold text-gray-300 text-center">
+                  Chưa có cuộc trò chuyện nào.
                 </Text>
-                <Text className="text-sm text-gray-300 mt-2 text-center">
-                  Hãy thich một thú cưng để bắt đầu trò chuyện
+                <Text className="text-sm text-gray-500 mt-2 text-center">
+                  Hãy thích một thú cưng để bắt đầu trò chuyện
                 </Text>
                 <TouchableOpacity
-                  onPress={() => navigation.navigate('Home' as any)}
-                  className="mt-6 bg-[#00B4DB] px-8 py-3 rounded-full shadow-lg shadow-[#00B4DB]/30"
+                  onPress={() => (navigation as any).navigate('Home')}
+                  className="mt-8 bg-[#0084FF] px-8 py-3 rounded-full"
                 >
-                  <Text className="text-white font-bold">Tim thú cưng</Text>
+                  <Text className="text-white font-semibold">Tìm thú cưng</Text>
                 </TouchableOpacity>
               </View>
-            }
-          />
+            )}
+          </ScrollView>
         </>
       )}
     </SafeAreaView>
