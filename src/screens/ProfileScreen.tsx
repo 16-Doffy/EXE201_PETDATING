@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import { CompositeScreenProps } from '@react-navigation/native';
+import { CompositeScreenProps, useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { MainTabParamList, PetModel, RootStackParamList } from '@/types';
 import { createPetProfile, getPetByOwnerId, getSocialStats } from '@/services/petService';
@@ -36,22 +36,25 @@ const ProfileScreen = ({ navigation }: Props) => {
   const [vipActive, setVipActive] = useState(false);
   const [vipDaysLeft, setVipDaysLeft] = useState(0);
 
-  useEffect(() => {
-    const load = async () => {
-      const [result, socialStats, vip, days] = await Promise.all([
-        getPetByOwnerId(),
-        getSocialStats(),
-        isVipActive(),
-        getVipDaysLeft(),
-      ]);
-      setPet(result);
-      setStats(socialStats);
-      setVipActive(vip);
-      setVipDaysLeft(days);
-    };
-
-    load();
+  const loadProfile = useCallback(async () => {
+    const [result, socialStats, vip, days] = await Promise.all([
+      getPetByOwnerId(),
+      getSocialStats(),
+      isVipActive(),
+      getVipDaysLeft(),
+    ]);
+    setPet(result);
+    setStats(socialStats);
+    setVipActive(vip);
+    setVipDaysLeft(days);
   }, []);
+
+  // Reload khi quay về từ màn Payment
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile();
+    }, [loadProfile])
+  );
 
   const savePickedImage = async (imageUri: string) => {
     if (!pet) return;

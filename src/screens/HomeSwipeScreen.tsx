@@ -135,9 +135,11 @@ const HomeSwipeScreen = ({ navigation }: any) => {
 
   const handleLike = async (pet: PetModel) => {
     try {
-      const result = await likePet(pet.id);
+      const result = await likePet(pet.id, pet);
       if (result?.matched) {
-        Alert.alert('Match 🎉', `Bạn và ${pet.name} đã match. Mở chat ngay nhé!`);
+        Alert.alert('Match 🎉', `Bạn và ${pet.name} đã match. Mở chat ngay nhé!`, [
+          { text: 'OK' },
+        ]);
       }
     } catch {
       Alert.alert('Lỗi', 'Không thể gửi lượt thích lúc này.');
