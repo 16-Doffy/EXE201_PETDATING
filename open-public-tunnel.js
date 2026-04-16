@@ -1,33 +1,16 @@
-const ngrok = require(
-  process.env.EXPO_NGROK_PATH ||
-    'C:/Users/MSI/AppData/Roaming/npm/node_modules/@expo/ngrok'
+require('child_process').spawn(
+  process.execPath,
+  [
+    'keep-cloudflare-tunnel.js',
+    '--name',
+    'page',
+    '--url',
+    `http://127.0.0.1:${process.env.PORT || 8787}`,
+    '--check-path',
+    '/',
+  ],
+  {
+    cwd: __dirname,
+    stdio: 'inherit',
+  }
 );
-
-const port = Number(process.env.PORT || 8787);
-
-async function main() {
-  const url = await ngrok.connect({
-    addr: port,
-    proto: 'http',
-  });
-
-  console.log(url);
-
-  const shutdown = async () => {
-    try {
-      await ngrok.disconnect(url);
-      await ngrok.kill();
-    } finally {
-      process.exit(0);
-    }
-  };
-
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
-  setInterval(() => {}, 1 << 30);
-}
-
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
