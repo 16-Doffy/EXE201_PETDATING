@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import { CompositeScreenProps, useFocusEffect } from '@react-navigation/native';
+import { CompositeScreenProps, useFocusEffect, CommonActions } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { MainTabParamList, PetModel, RootStackParamList } from '@/types';
 import { createPetProfile, getPetByOwnerId, getSocialStats } from '@/services/petService';
@@ -339,7 +339,14 @@ const ProfileScreen = ({ navigation }: Props) => {
             <TouchableOpacity
               key={item.key}
               onPress={() =>
-                item.key === 'logout' ? logout() : item.route ? navigation.navigate(item.route as never) : null
+                item.key === 'logout'
+                  ? (async () => {
+                      await logout();
+                      navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
+                    })()
+                  : item.route
+                    ? navigation.navigate(item.route as never)
+                    : null
               }
               className="mb-2 flex-row items-center rounded-[24px] px-4 py-4"
               style={{

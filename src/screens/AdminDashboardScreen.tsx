@@ -126,6 +126,7 @@ const AdminDashboardScreen = () => {
         style: 'destructive',
         onPress: async () => {
           await logout();
+          navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
         },
       },
     ]);
