@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   ScrollView,
   StatusBar,
@@ -118,19 +117,10 @@ const AdminDashboardScreen = () => {
     if (tab === 'revenue') fetchTransactions(1);
   }, [fetchDashboard, tab, fetchVipUsers, fetchAllUsers, fetchTransactions]);
 
-  const handleLogout = useCallback(() => {
-    Alert.alert('Đăng xuất admin', 'Bạn muốn thoát khỏi tài khoản quản trị viên này?', [
-      { text: 'Ở lại', style: 'cancel' },
-      {
-        text: 'Đăng xuất',
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-          navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
-        },
-      },
-    ]);
-  }, []);
+  const handleLogout = useCallback(async () => {
+    await logout();
+    navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
+  }, [navigation]);
 
   const StatCard = ({
     label,
@@ -212,12 +202,12 @@ const AdminDashboardScreen = () => {
             <Text className="text-gray-400 text-xs mt-0.5">PetDating Control Center</Text>
           </View>
           <View className="flex-row items-center">
-            <TouchableOpacity onPress={fetchDashboard} className="p-2 mr-1">
+            <TouchableOpacity onPress={fetchDashboard} className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: '#2d1050', borderWidth: 1, borderColor: '#4a1a7a' }}>
               <Ionicons name="reload" size={20} color="#8b5cf6" />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleLogout}
-              className="w-10 h-10 rounded-full items-center justify-center"
+              className="w-10 h-10 rounded-full items-center justify-center ml-2"
               style={{ backgroundColor: '#2d1050', borderWidth: 1, borderColor: '#4a1a7a' }}
             >
               <Ionicons name="log-out-outline" size={18} color="#fda4af" />
