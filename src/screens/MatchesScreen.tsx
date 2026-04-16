@@ -17,7 +17,8 @@ import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { MainTabParamList, MatchModel, PetModel, RootStackParamList } from '@/types';
-import { getLocalMatches, getMatches, getPetById, getPetByOwnerId } from '@/services/petService';
+import { getLocalMatches, getMatches, getPetById, getPetByOwnerId, subscribeMatchUpdate } from '@/services/petService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getMessages } from '@/services/chatService';
 import { getRandomImage } from '@/constants/images';
 import * as ImagePicker from 'expo-image-picker';
@@ -233,6 +234,30 @@ const MatchesScreen = ({ navigation }: Props) => {
         });
       }
 
+      // Xử lý pending match (tạo từ HomeSwipeScreen khi vừa match xong)
+      try {
+        const pendingRaw = await AsyncStorage.getItem('bossitive_pending_match');
+        if (pendingRaw) {
+          const pending = JSON.parse(pendingRaw);
+          await AsyncStorage.removeItem('bossitive_pending_match');
+          if (pending.pet && !merged.has(pending.pet.id)) {
+            const pendingMatch: MatchModel = normalizeMatch({
+              id: pending.matchId || `pending-${Date.now()}`,
+              pet1: pet?.id,
+              pet2: pending.pet.id,
+              createdAt: pending.timestamp || Date.now(),
+            });
+            merged.set(pending.pet.id, {
+              match: pendingMatch,
+              otherPet: normalizePet(pending.pet),
+              lastMessage: '🎉 Match mới! Bắt đầu cuộc trò chuyện',
+              lastMessageTime: pending.timestamp || Date.now(),
+              unreadCount: 0,
+            });
+          }
+        }
+      } catch {}
+
       const all = Array.from(merged.values()).sort(
         (a, b) => b.lastMessageTime - a.lastMessageTime
       );
@@ -253,6 +278,14 @@ const MatchesScreen = ({ navigation }: Props) => {
       loadMatches();
     }, [loadMatches])
   );
+
+  // Subscribe match update để load lại khi có match mới từ HomeSwipeScreen
+  useEffect(() => {
+    const unsubscribe = subscribeMatchUpdate(() => {
+      loadMatches();
+    });
+    return unsubscribe;
+  }, [loadMatches]);
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({

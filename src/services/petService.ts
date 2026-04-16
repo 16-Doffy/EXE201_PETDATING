@@ -14,6 +14,7 @@ type PetProfileListener = (pet: PetModel | null) => void;
 
 const LOCAL_MATCHES_KEY = 'bossitive_local_matches';
 const LOCAL_PET_KEY = 'bossitive_local_pet_profile';
+const PENDING_MATCH_KEY = 'bossitive_pending_match';
 const petProfileListeners = new Set<PetProfileListener>();
 
 const toTimestamp = (value: unknown) => {
@@ -49,7 +50,7 @@ const inferPetType = (pet: Partial<PetModel>) => {
   return 'Dog';
 };
 
-const normalizePet = (pet: Partial<PetModel> & { id?: string; _id?: string }): PetModel => {
+export const normalizePet = (pet: Partial<PetModel> & { id?: string; _id?: string }): PetModel => {
   const type = inferPetType(pet);
   const id = String(pet.id ?? pet._id ?? `pet-${Date.now()}`);
 
@@ -70,7 +71,7 @@ const normalizePet = (pet: Partial<PetModel> & { id?: string; _id?: string }): P
   };
 };
 
-const normalizeMatch = (match: Partial<MatchModel> & { id?: string; _id?: string }): MatchModel => ({
+export const normalizeMatch = (match: Partial<MatchModel> & { id?: string; _id?: string }): MatchModel => ({
   id: String(match.id ?? match._id ?? `match-${Date.now()}`),
   pet1: String(match.pet1 ?? ''),
   pet2: String(match.pet2 ?? ''),
@@ -79,6 +80,21 @@ const normalizeMatch = (match: Partial<MatchModel> & { id?: string; _id?: string
 
 const emitPetProfile = (pet: PetModel | null) => {
   petProfileListeners.forEach((listener) => listener(pet));
+};
+
+// ─── Match update listeners ─────────────────────────────────────────────────
+type MatchUpdateListener = () => void;
+const matchUpdateListeners = new Set<MatchUpdateListener>();
+
+export const subscribeMatchUpdate = (listener: MatchUpdateListener) => {
+  matchUpdateListeners.add(listener);
+  return () => {
+    matchUpdateListeners.delete(listener);
+  };
+};
+
+export const emitMatchUpdate = () => {
+  matchUpdateListeners.forEach((listener) => listener());
 };
 
 const readLocalPet = async (): Promise<PetModel | null> => {
@@ -139,6 +155,7 @@ export const subscribePetProfile = (listener: PetProfileListener) => {
 export const clearPetCache = async () => {
   await AsyncStorage.multiRemove([LOCAL_PET_KEY, LOCAL_MATCHES_KEY]);
   emitPetProfile(null);
+  emitMatchUpdate();
 };
 
 export const createPetProfile = async (pet: PetPayload) => {
@@ -180,7 +197,7 @@ export const getExplorePets = async () => {
   return (data.pets || []).map(normalizePet);
 };
 
-export const likePet = async (toPetId: string) => {
+export const likePet = async (toPetId: string, fallbackPet?: PetModel) => {
   const result = await apiRequest<{ matched: boolean; matchId: string | null }>('/social/like', {
     method: 'POST',
     auth: true,
@@ -188,13 +205,25 @@ export const likePet = async (toPetId: string) => {
   });
 
   if (result.matched && result.matchId) {
-    const [myPet, otherPet] = await Promise.all([
-      readLocalPet(),
-      getPetById(toPetId).catch(() => null),
-    ]);
+    const myPet = await readLocalPet();
+    if (myPet) {
+      // Ưu tiên dùng pet từ UI (fallbackPet) vì getPetById có thể fail
+      const petToSave = fallbackPet
+        ? normalizePet(fallbackPet)
+        : await getPetById(toPetId).catch(() => null);
 
-    if (myPet && otherPet) {
-      await addLocalMatch(myPet.id, otherPet, result.matchId);
+      if (petToSave) {
+        await addLocalMatch(myPet.id, petToSave, result.matchId);
+
+        // Lưu pending match để MatchesScreen đọc khi được focus
+        await AsyncStorage.setItem(PENDING_MATCH_KEY, JSON.stringify({
+          matchId: result.matchId,
+          pet: petToSave,
+          timestamp: Date.now(),
+        }));
+
+        emitMatchUpdate();
+      }
     }
   }
 
