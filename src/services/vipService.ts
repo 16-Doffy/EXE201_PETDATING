@@ -60,7 +60,7 @@ export const getVipDaysLeft = async (): Promise<number> => {
 
 // ─── Kích hoạt VIP qua BACKEND ──────────────────────────────────────────────
 
-export const activateVip = async (pkg: VipPackage): Promise<VipStatus> => {
+export const activateVip = async (pkg: VipPackage, paymentMethod = 'vietqr'): Promise<VipStatus> => {
   const data = await apiRequest<{
     success: boolean;
     vipStatus: {
@@ -72,7 +72,7 @@ export const activateVip = async (pkg: VipPackage): Promise<VipStatus> => {
   }>('/payment/activate', {
     method: 'POST',
     auth: true,
-    body: { package: pkg },
+    body: { package: pkg, paymentMethod },
   });
 
   const vs = data.vipStatus;
