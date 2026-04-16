@@ -1,22 +1,34 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { MainTabParamList, PetModel, RootStackParamList } from '@/types';
-import { getPetByOwnerId, getSocialStats } from '@/services/petService';
+import { createPetProfile, getPetByOwnerId, getSocialStats } from '@/services/petService';
 import { logout } from '@/services/authService';
-import { isVipActive, getVipDaysLeft, getVipStatus } from '@/services/vipService';
+import { getVipDaysLeft, isVipActive } from '@/services/vipService';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getRandomImage } from '@/constants/images';
 import * as ImagePicker from 'expo-image-picker';
+import AppIcon from '@/components/ui/AppIcon';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<MainTabParamList, 'Profile'>,
   NativeStackScreenProps<RootStackParamList>
 >;
+
+type ProfileMenuRoute = 'Payment' | 'MyProfile' | 'HealthInfo' | 'Settings' | 'PrivacyPolicy';
+
+type MenuItem = {
+  key: string;
+  label: string;
+  icon: React.ComponentProps<typeof AppIcon>['name'];
+  route?: ProfileMenuRoute;
+  premium?: boolean;
+  danger?: boolean;
+  description?: string;
+};
 
 const ProfileScreen = ({ navigation }: Props) => {
   const [pet, setPet] = useState<PetModel | null>(null);
@@ -26,7 +38,7 @@ const ProfileScreen = ({ navigation }: Props) => {
 
   useEffect(() => {
     const load = async () => {
-      const [result, socialStats, isVip, days] = await Promise.all([
+      const [result, socialStats, vip, days] = await Promise.all([
         getPetByOwnerId(),
         getSocialStats(),
         isVipActive(),
@@ -34,184 +46,323 @@ const ProfileScreen = ({ navigation }: Props) => {
       ]);
       setPet(result);
       setStats(socialStats);
-      setVipActive(isVip);
+      setVipActive(vip);
       setVipDaysLeft(days);
     };
+
     load();
   }, []);
 
+  const savePickedImage = async (imageUri: string) => {
+    if (!pet) return;
+
+    setPet({ ...pet, image: imageUri });
+
+    try {
+      await createPetProfile({
+        name: pet.name,
+        age: pet.age,
+        breed: pet.breed,
+        gender: pet.gender,
+        type: pet.type,
+        location: pet.location,
+        bio: pet.bio,
+        image: imageUri,
+        ownerContact: pet.ownerContact,
+        weight: pet.weight,
+        tags: pet.tags,
+      });
+      Alert.alert('Thành công', 'Đã cập nhật ảnh đại diện mới!');
+    } catch {
+      Alert.alert('Lỗi', 'Không thể lưu ảnh mới.');
+    }
+  };
+
   const pickImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Cần quyền truy cập', 'Vui lòng cho phép ứng dụng truy cập thư viện ảnh.');
+      return;
+    }
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.7,
+      quality: 0.6,
+      base64: true,
     });
 
-    if (!result.canceled && pet) {
-        const newImageUri = result.assets[0].uri;
-
-        // 1. Cập nhật giao diện ngay lập tức
-        const updatedPet = { ...pet, image: newImageUri };
-        setPet(updatedPet);
-
-        // 2. Lưu vào bộ nhớ hệ thống
-        try {
-            await createPetProfile({
-                name: pet.name,
-                age: pet.age,
-                breed: pet.breed,
-                gender: pet.gender,
-                type: pet.type,
-                location: pet.location,
-                bio: pet.bio,
-                image: newImageUri,
-                ownerContact: pet.ownerContact,
-            });
-            Alert.alert('Thành công', 'Đã cập nhật ảnh đại diện mới!');
-        } catch (error) {
-            Alert.alert('Lỗi', 'Không thể lưu ảnh mới.');
-        }
+    if (!result.canceled) {
+      const asset = result.assets[0];
+      const imageUri = asset.base64
+        ? `data:${asset.mimeType ?? 'image/jpeg'};base64,${asset.base64}`
+        : asset.uri;
+      await savePickedImage(imageUri);
     }
   };
 
-  const menuItems = useMemo(() => [
-    { key: 'upgrade', label: 'Nâng cấp tài khoản', icon: 'diamond', route: 'Payment', premium: true },
-    { key: 'my-profile', label: 'Hồ sơ của tôi', icon: 'person-outline', route: 'MyProfile' },
-    { key: 'health', label: 'Thông tin sức khỏe', icon: 'medkit-outline', route: 'HealthInfo' },
-    { key: 'settings', label: 'Cài đặt', icon: 'settings-outline', route: 'Settings' },
-    { key: 'privacy', label: 'Chính sách bảo mật', icon: 'shield-checkmark-outline', route: 'PrivacyPolicy' },
-    { key: 'logout', label: 'Đăng xuất', icon: 'log-out-outline', danger: true },
-  ], []);
+  const captureImage = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Cần quyền máy ảnh', 'Vui lòng cho phép ứng dụng truy cập máy ảnh.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.6,
+      base64: true,
+    });
+
+    if (!result.canceled) {
+      const asset = result.assets[0];
+      const imageUri = asset.base64
+        ? `data:${asset.mimeType ?? 'image/jpeg'};base64,${asset.base64}`
+        : asset.uri;
+      await savePickedImage(imageUri);
+    }
+  };
+
+  const menuItems = useMemo<MenuItem[]>(
+    () => [
+      {
+        key: 'upgrade',
+        label: 'Nâng cấp tài khoản',
+        icon: 'vip',
+        route: 'Payment',
+        premium: true,
+        description: 'Mở thêm quyền lợi nổi bật hồ sơ',
+      },
+      { key: 'my-profile', label: 'Hồ sơ của tôi', icon: 'profile-card', route: 'MyProfile', description: 'Xem và chỉnh sửa thông tin của bé' },
+      { key: 'health', label: 'Thông tin sức khỏe', icon: 'health', route: 'HealthInfo', description: 'Lưu cân nặng, tiêm ngừa, tình trạng' },
+      { key: 'settings', label: 'Cài đặt', icon: 'settings', route: 'Settings', description: 'Tùy chỉnh trải nghiệm sử dụng app' },
+      { key: 'privacy', label: 'Chính sách bảo mật', icon: 'shield', route: 'PrivacyPolicy', description: 'Xem cách ứng dụng bảo vệ dữ liệu' },
+      { key: 'logout', label: 'Đăng xuất', icon: 'logout', danger: true, description: 'Thoát về màn hình đăng nhập' },
+    ],
+    []
+  );
+
+  const renderMenuIcon = (item: MenuItem) => {
+    const bgColor = item.danger ? '#ffe7ea' : item.premium ? '#fff4cc' : '#eef2ff';
+    const iconColor = item.danger ? '#ef4444' : item.premium ? '#d97706' : '#475569';
+
+    return (
+      <View
+        className="w-12 h-12 rounded-2xl items-center justify-center"
+        style={{ backgroundColor: bgColor }}
+      >
+        <AppIcon name={item.icon} size={22} color={iconColor} />
+      </View>
+    );
+  };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <LinearGradient colors={['#E0EAFC', '#FFFFFF']} className="absolute inset-0" />
-      <ScrollView showsVerticalScrollIndicator={false} className="px-6">
-        <View className="flex-row items-center justify-between py-6">
-          <Text className="text-3xl font-bold text-textMain">Cá nhân</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Settings')} className="bg-gray-100 p-2.5 rounded-full">
-            <Ionicons name="settings-outline" size={24} color="#1E293B" />
+    <SafeAreaView className="flex-1 bg-[#fff8fb]">
+      <LinearGradient colors={['#fff9fc', '#fff3f7', '#ffffff']} className="absolute inset-0" />
+
+      <ScrollView showsVerticalScrollIndicator={false} className="px-5">
+        <View className="flex-row items-center justify-between pt-5 pb-4">
+          <View>
+            <Text className="text-[32px] font-black text-slate-900">Cá nhân</Text>
+            <Text className="mt-1 text-sm font-medium text-slate-400">Quản lý hồ sơ thú cưng của bạn</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Settings')}
+            className="w-12 h-12 rounded-full bg-white items-center justify-center"
+            style={{
+              shadowColor: '#f472b6',
+              shadowOpacity: 0.08,
+              shadowRadius: 12,
+              shadowOffset: { width: 0, height: 6 },
+              elevation: 3,
+            }}
+          >
+            <AppIcon name="settings" size={22} color="#334155" />
           </TouchableOpacity>
         </View>
 
-        {/* Profile Card */}
         <View
-          className="bg-white rounded-[32px] p-8 items-center shadow-lg shadow-gray-200 mb-8"
+          className="rounded-[32px] bg-white px-6 py-7 items-center"
           style={{
-            borderWidth: vipActive ? 2 : 1,
-            borderColor: vipActive ? '#FFD700' : '#f0f0f0',
+            shadowColor: '#f472b6',
+            shadowOpacity: 0.1,
+            shadowRadius: 18,
+            shadowOffset: { width: 0, height: 10 },
+            elevation: 5,
           }}
         >
           <View className="relative">
             <View
-              className="w-28 h-28 rounded-full overflow-hidden bg-gray-50"
-              style={{ borderWidth: vipActive ? 3 : 4, borderColor: vipActive ? '#FFD700' : 'rgba(0,180,219,0.1)' }}
+              className="w-28 h-28 rounded-full overflow-hidden bg-rose-50"
+              style={{
+                borderWidth: 4,
+                borderColor: vipActive ? '#facc15' : '#fbcfe8',
+              }}
             >
-              <Image source={{ uri: pet?.image || getRandomImage('Dog', 'me') }} className="w-full h-full" />
+              <Image
+                source={{ uri: pet?.image || getRandomImage(pet?.type || 'Dog', pet?.id || 'me') }}
+                className="w-full h-full"
+              />
             </View>
 
-            {/* Camera button */}
-            <TouchableOpacity onPress={pickImage} className="absolute bottom-0 right-0 bg-primary w-8 h-8 rounded-full items-center justify-center border-2 border-white">
-              <Ionicons name="camera" size={16} color="white" />
+            <TouchableOpacity
+              onPress={pickImage}
+              className="absolute -bottom-1 -right-1 w-10 h-10 rounded-full items-center justify-center"
+              style={{ backgroundColor: '#ff4f96', borderWidth: 3, borderColor: '#fff' }}
+            >
+              <AppIcon name="camera" size={18} color="#fff" />
             </TouchableOpacity>
 
-            {/* VIP badge */}
             {vipActive && (
-              <View className="absolute -top-2 -left-2 bg-yellow-400 w-8 h-8 rounded-full items-center justify-center shadow-md">
-                <MaterialCommunityIcons name="diamond-stone" size={16} color="#7A5C00" />
+              <View className="absolute -top-2 -left-2 w-9 h-9 rounded-full bg-yellow-400 items-center justify-center">
+                <AppIcon name="vip" size={16} color="#7a5c00" />
               </View>
             )}
           </View>
 
-          <View className="flex-row items-center mt-4">
-            <Text className="text-2xl font-bold text-textMain">{pet?.name || 'Coco'}</Text>
+          <View className="mt-4 flex-row items-center">
+            <Text className="text-[28px] font-black text-slate-900">{pet?.name || 'Bossitive'}</Text>
             {vipActive && (
-              <View className="ml-2 bg-yellow-400 rounded-full px-2 py-0.5 flex-row items-center">
-                <MaterialCommunityIcons name="diamond-stone" size={12} color="#7A5C00" />
-                <Text className="text-yellow-900 text-[10px] font-bold ml-1">VIP</Text>
+              <View className="ml-2 rounded-full bg-yellow-100 px-3 py-1 flex-row items-center">
+                <AppIcon name="vip" size={13} color="#ca8a04" />
+                <Text className="ml-1 text-[11px] font-bold text-yellow-700">VIP</Text>
               </View>
             )}
           </View>
 
-          <View className="flex-row items-center mt-1">
+          <View className="mt-2 flex-row items-center">
             {vipActive ? (
               <>
-                <MaterialCommunityIcons name="diamond-stone" size={14} color="#FFD700" />
-                <Text className="text-yellow-600 text-xs font-bold ml-1">Hạng VIP · {vipDaysLeft} ngày</Text>
+                <AppIcon name="vip" size={15} color="#eab308" />
+                <Text className="ml-1 text-[12px] font-bold text-yellow-600">
+                  Hạng VIP · còn {vipDaysLeft} ngày
+                </Text>
               </>
             ) : (
               <>
-                <Ionicons name="checkmark-circle" size={14} color="#00B4DB" />
-                <Text className="text-primary text-xs font-bold ml-1">Đã xác thực</Text>
+                <AppIcon name="check" size={15} color="#06b6d4" />
+                <Text className="ml-1 text-[12px] font-bold text-cyan-600">Đã xác thực</Text>
               </>
             )}
           </View>
 
-          <View className="flex-row w-full mt-8 border-t border-gray-50 pt-6">
-            <View className="flex-1 items-center border-r border-gray-50">
-              <Text className="text-lg font-bold text-textMain">{stats.matches}</Text>
-              <Text className="text-textSub text-xs">Matches</Text>
-            </View>
-            <View className="flex-1 items-center border-r border-gray-50">
-              <Text className="text-lg font-bold text-textMain">{stats.likes}</Text>
-              <Text className="text-textSub text-xs">Likes</Text>
-            </View>
-            <View className="flex-1 items-center">
-              <Text className="text-lg font-bold text-textMain">{stats.pets}</Text>
-              <Text className="text-textSub text-xs">Pets</Text>
-            </View>
+          <View className="mt-7 flex-row w-full rounded-[24px] bg-[#fff7fb] py-5">
+            {[
+              { label: 'Matches', value: stats.matches },
+              { label: 'Likes', value: stats.likes },
+              { label: 'Pets', value: stats.pets },
+            ].map((item, index) => (
+              <View
+                key={item.label}
+                className={`flex-1 items-center ${index < 2 ? 'border-r border-rose-100' : ''}`}
+              >
+                <Text className="text-[24px] font-black text-slate-900">{item.value}</Text>
+                <Text className="mt-1 text-[12px] font-medium text-slate-400">{item.label}</Text>
+              </View>
+            ))}
           </View>
         </View>
 
-        {/* VIP Banner */}
         <TouchableOpacity
           onPress={() => navigation.navigate('Payment')}
-          className="mb-6 rounded-2xl overflow-hidden"
+          className="mt-6 rounded-[28px] overflow-hidden"
+          style={{
+            shadowColor: '#fb7185',
+            shadowOpacity: 0.16,
+            shadowRadius: 14,
+            shadowOffset: { width: 0, height: 8 },
+            elevation: 4,
+          }}
         >
           <LinearGradient
-            colors={['#1a1a1a', '#2a1a00']}
+            colors={['#1f1300', '#2d1d08', '#453008']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            className="px-5 py-4 flex-row items-center"
+            className="px-5 py-5 flex-row items-center"
           >
+            <View className="w-12 h-12 rounded-2xl bg-yellow-400/20 items-center justify-center mr-4">
+              <AppIcon name="vip" size={24} color="#facc15" />
+            </View>
             <View className="flex-1">
-              <View className="flex-row items-center mb-1">
-                <MaterialCommunityIcons name="diamond-stone" size={18} color="#FFD700" />
-                <Text className="text-yellow-400 font-bold text-sm ml-2">Nâng cấp VIP</Text>
-                <View className="ml-2 bg-red-500 rounded-full px-2 py-0.5">
-                  <Text className="text-white text-[10px] font-bold">HOT</Text>
+              <View className="flex-row items-center">
+                <Text className="text-[24px] font-black text-yellow-300">Nâng cấp VIP</Text>
+                <View className="ml-2 rounded-full bg-red-500 px-2.5 py-1">
+                  <Text className="text-[10px] font-black text-white">HOT</Text>
                 </View>
               </View>
-              <Text className="text-gray-300 text-xs">Nổi bật tên & profile trên đầu danh sách</Text>
+              <Text className="mt-1 text-sm font-medium text-yellow-100/80">
+                Nổi bật tên và profile trên đầu danh sách
+              </Text>
             </View>
-            <View className="bg-yellow-400 rounded-full px-4 py-1.5">
-              <Text className="text-yellow-900 font-bold text-xs">29K</Text>
+            <View className="rounded-full bg-yellow-400 px-4 py-2">
+              <Text className="text-sm font-black text-yellow-900">29K</Text>
             </View>
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Menu */}
-        <View className="bg-white/50 rounded-3xl p-2 mb-10">
-          {menuItems.map((item: any) => (
+        <View className="mt-5 rounded-[28px] bg-white px-5 py-4 flex-row items-center">
+          <View className="w-12 h-12 rounded-2xl bg-rose-50 items-center justify-center">
+            <AppIcon name="image" size={22} color="#ff4f96" />
+          </View>
+          <View className="ml-4 flex-1">
+            <Text className="text-slate-800 font-bold text-base">Ảnh hồ sơ</Text>
+            <Text className="text-slate-500 text-xs mt-1">Đổi ảnh từ thư viện hoặc chụp mới trực tiếp</Text>
+          </View>
+          <TouchableOpacity
+            onPress={pickImage}
+            className="rounded-full bg-slate-100 px-4 py-2 mr-2"
+          >
+            <Text className="text-slate-700 text-xs font-bold">Thư viện</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={captureImage}
+            className="rounded-full bg-slate-900 px-4 py-2"
+          >
+            <Text className="text-white text-xs font-bold">Chụp</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View className="mt-6 mb-10 rounded-[30px] bg-white px-3 py-3">
+          {menuItems.map((item) => (
             <TouchableOpacity
-                key={item.key}
-                onPress={() => item.key === 'logout' ? logout() : navigation.navigate(item.route)}
-                className="flex-row items-center p-4 mb-1"
-                style={item.premium ? { backgroundColor: '#FFF9E6', borderRadius: 16 } : undefined}
+              key={item.key}
+              onPress={() =>
+                item.key === 'logout' ? logout() : item.route ? navigation.navigate(item.route as never) : null
+              }
+              className="mb-2 flex-row items-center rounded-[24px] px-4 py-4"
+              style={{
+                backgroundColor: item.premium ? '#fff9df' : item.danger ? '#fff5f5' : '#ffffff',
+              }}
             >
-              <View
-                className={`w-10 h-10 rounded-xl items-center justify-center ${item.danger ? 'bg-red-50' : item.premium ? 'bg-yellow-50' : 'bg-gray-100'}`}
-              >
-                <Ionicons name={item.icon} size={20} color={item.danger ? '#EF4444' : item.premium ? '#FFB800' : '#64748B'} />
+              {renderMenuIcon(item)}
+
+              <View className="ml-4 flex-1">
+                <Text
+                  className={`text-[18px] font-bold ${
+                    item.danger ? 'text-red-500' : item.premium ? 'text-amber-700' : 'text-slate-800'
+                  }`}
+                >
+                  {item.label}
+                </Text>
+                {item.description ? (
+                  <Text className={`mt-1 text-[12px] font-medium ${item.danger ? 'text-red-300' : item.premium ? 'text-amber-600' : 'text-slate-400'}`}>
+                    {item.description}
+                  </Text>
+                ) : null}
               </View>
-              <Text className={`flex-1 ml-4 font-bold ${item.danger ? 'text-red-500' : item.premium ? 'text-yellow-700' : 'text-textMain'}`}>{item.label}</Text>
+
               {item.premium ? (
-                <View className="bg-yellow-400 rounded-full px-2 py-0.5">
-                  <Text className="text-xs font-bold text-yellow-900">HOT</Text>
+                <View className="rounded-full bg-yellow-400 px-3 py-1">
+                  <Text className="text-[10px] font-black text-yellow-900">HOT</Text>
                 </View>
               ) : (
-                <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+                <AppIcon
+                  name={item.danger ? 'logout' : 'chevron-right'}
+                  size={20}
+                  color={item.danger ? '#ef4444' : '#cbd5e1'}
+                />
               )}
             </TouchableOpacity>
           ))}

@@ -1,8 +1,11 @@
 import { apiRequest, getToken, setToken } from '@/services/api';
+import { clearPetCache } from '@/services/petService';
+import { clearChatCache } from '@/services/chatService';
 
 export type AuthUser = {
   id: string;
   email: string;
+  role?: 'user' | 'admin';
 };
 
 const normalizeIdentityToEmail = (identity: string) => {
@@ -34,6 +37,7 @@ export const registerWithEmail = async (identity: string, password: string) => {
     body: { email, password },
   });
 
+  await Promise.all([clearPetCache(), clearChatCache()]);
   await setToken(data.token);
   currentUser = data.user;
   emit();
@@ -47,14 +51,24 @@ export const loginWithEmail = async (identity: string, password: string) => {
     body: { email, password },
   });
 
+  await Promise.all([clearPetCache(), clearChatCache()]);
   await setToken(data.token);
   currentUser = data.user;
   emit();
   return data.user;
 };
 
+export const resetPassword = async (identity: string, newPassword: string) => {
+  const email = normalizeIdentityToEmail(identity);
+  return apiRequest<{ success: boolean; message: string }>('/auth/reset-password', {
+    method: 'POST',
+    body: { email, newPassword },
+  });
+};
+
 export const logout = async () => {
   await setToken(null);
+  await Promise.all([clearPetCache(), clearChatCache()]);
   currentUser = null;
   emit();
 };
@@ -68,13 +82,14 @@ export const bootstrapAuth = async () => {
   }
 
   try {
-    const data = await apiRequest<{ user: AuthUser }>('/auth/me', { auth: true });
+    const data = await apiRequest<{ user: AuthUser }>('/auth/me', { auth: true, timeoutMs: 4000 });
     currentUser = data.user;
     emit();
     return data.user;
   } catch {
     // Token không hợp lệ hoặc hết hạn → xóa và trả về null
     await setToken(null);
+    await Promise.all([clearPetCache(), clearChatCache()]);
     currentUser = null;
     emit();
     return null;
@@ -86,5 +101,7 @@ export const getCurrentUser = () => currentUser;
 export const subscribeAuth = (callback: (user: AuthUser | null) => void) => {
   listeners.add(callback);
   callback(currentUser);
-  return () => listeners.delete(callback);
+  return () => {
+    listeners.delete(callback);
+  };
 };

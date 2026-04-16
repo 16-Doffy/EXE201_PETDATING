@@ -33,7 +33,31 @@ const LoginScreen = ({ navigation }: Props) => {
       setLoading(true);
       await loginWithEmail(emailOrPhone, password);
     } catch (error: any) {
-      Alert.alert('Đăng nhập thất bại', error.message);
+      const message = error?.message || 'Đã có lỗi xảy ra khi đăng nhập.';
+
+      if (/sai mật khẩu/i.test(message)) {
+        Alert.alert('Đăng nhập thất bại', message, [
+          { text: 'Hủy', style: 'cancel' },
+          {
+            text: 'Đặt lại mật khẩu',
+            onPress: () => navigation.navigate('ResetPassword'),
+          },
+        ]);
+        return;
+      }
+
+      if (/chưa được đăng ký/i.test(message)) {
+        Alert.alert('Đăng nhập thất bại', message, [
+          { text: 'Đóng', style: 'cancel' },
+          {
+            text: 'Đăng ký ngay',
+            onPress: () => navigation.navigate('Register'),
+          },
+        ]);
+        return;
+      }
+
+      Alert.alert('Đăng nhập thất bại', message);
     } finally {
       setLoading(false);
     }
@@ -68,7 +92,7 @@ const LoginScreen = ({ navigation }: Props) => {
               onChangeText={setPassword}
             />
 
-            <TouchableOpacity className="self-end mb-8">
+            <TouchableOpacity className="self-end mb-8" onPress={() => navigation.navigate('ResetPassword')}>
                 <Text className="text-primary font-bold">Quên mật khẩu?</Text>
             </TouchableOpacity>
 

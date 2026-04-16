@@ -1,15 +1,45 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
+const PUBLIC_API_URL = 'https://petdating-backend.onrender.com';
+const LAST_SUCCESSFUL_API_URL_KEY = 'bossitive_last_successful_api_url';
 
-// Web/mobile: localhost:4000 first, Android emulator: 10.0.2.2 fallback
-const API_BASE_URLS = [
-  'http://localhost:4000',
-  'http://10.0.2.2:4000',
-  ENV_API_URL,
-].filter(Boolean) as string[];
+// Prefer the currently provisioned public backend first, then fall back to the longer-lived backup.
+const STATIC_API_BASE_URLS = Array.from(
+  new Set(
+    [
+      ENV_API_URL,
+      PUBLIC_API_URL,
+      'http://10.0.2.2:4000',
+      'http://localhost:4000',
+    ].filter(Boolean)
+  )
+) as string[];
 
 const TOKEN_KEY = 'bossitive_token';
+let lastSuccessfulBaseUrl: string | null = null;
+
+class ApiResponseError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiResponseError';
+    this.status = status;
+  }
+}
+
+const readErrorMessage = (payload: unknown, status: number) => {
+  if (payload && typeof payload === 'object') {
+    const message = 'message' in payload ? payload.message : null;
+    const detail = 'error' in payload ? payload.error : null;
+
+    if (typeof detail === 'string' && detail.trim()) return detail;
+    if (typeof message === 'string' && message.trim()) return message;
+  }
+
+  return `Request failed (${status})`;
+};
 
 export const setToken = async (token: string | null) => {
   if (!token) {
@@ -23,15 +53,29 @@ export const getToken = async () => {
   return AsyncStorage.getItem(TOKEN_KEY);
 };
 
+const getOrderedBaseUrls = async () => {
+  const persisted = lastSuccessfulBaseUrl || (await AsyncStorage.getItem(LAST_SUCCESSFUL_API_URL_KEY));
+  const urls = [...STATIC_API_BASE_URLS];
+
+  if (persisted && urls.includes(persisted)) {
+    return [persisted, ...urls.filter((url) => url !== persisted)];
+  }
+
+  return urls;
+};
+
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   auth?: boolean;
+  timeoutMs?: number;
 };
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const method = options.method ?? 'GET';
   const headers: Record<string, string> = {};
+  let lastNetworkError = 'Offline';
+  const baseUrls = await getOrderedBaseUrls();
 
   if (options.body !== undefined) {
     headers['Content-Type'] = 'application/json';
@@ -42,11 +86,14 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     if (token) headers.Authorization = `Bearer ${token}`;
   }
 
-  const TIMEOUT_MS = 5000;
+  const TIMEOUT_MS = options.timeoutMs ?? 8000;
 
-  for (const baseUrl of API_BASE_URLS) {
+  for (const baseUrl of baseUrls) {
     const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const effectiveTimeoutMs =
+      options.timeoutMs ??
+      (baseUrl.includes('trycloudflare.com') ? 2500 : baseUrl.includes('onrender.com') ? 6000 : 4000);
+    const id = setTimeout(() => controller.abort(), effectiveTimeoutMs);
 
     try {
       const response = await fetch(`${baseUrl}${path}`, {
@@ -57,16 +104,41 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       });
 
       clearTimeout(id);
-      if (!response.ok) throw new Error('Fail');
+      const text = await response.text();
+      const data = text ? JSON.parse(text) : null;
 
-      const data = await response.json();
+      if (!response.ok) {
+        const message = readErrorMessage(data, response.status);
+
+        if (response.status >= 500) {
+          lastNetworkError = message;
+          continue;
+        }
+
+        throw new ApiResponseError(message, response.status);
+      }
+
+      lastSuccessfulBaseUrl = baseUrl;
+      AsyncStorage.setItem(LAST_SUCCESSFUL_API_URL_KEY, baseUrl).catch(() => {});
       return data as T;
-    } catch {
+    } catch (error) {
       clearTimeout(id);
+
+      if (error instanceof ApiResponseError) {
+        throw error;
+      }
+
+      if (error instanceof SyntaxError) {
+        throw new Error('Phan hoi tu may chu khong hop le.');
+      }
+
+      if (error instanceof Error) {
+        lastNetworkError = error.name === 'AbortError' ? 'Ket noi may chu qua lau.' : error.message || 'Offline';
+      }
     }
   }
 
-  throw new Error('Offline');
+  throw new Error(lastNetworkError);
 }
 
-export const API_BASE_URL = API_BASE_URLS[0];
+export const API_BASE_URL = STATIC_API_BASE_URLS[0];

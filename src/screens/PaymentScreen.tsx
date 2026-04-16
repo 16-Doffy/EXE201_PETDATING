@@ -204,11 +204,15 @@ const PaymentScreen = () => {
   // Load current VIP status on mount
   useEffect(() => {
     const load = async () => {
-      const status = await getVipStatus();
-      if (status) {
-        setCurrentStatus(status);
-        setDaysLeft(Math.ceil((status.expiresAt - Date.now()) / 86400000));
-        setSelectedPkg(status.package);
+      try {
+        const status = await getVipStatus();
+        if (status) {
+          setCurrentStatus(status);
+          setDaysLeft(Math.ceil((status.expiresAt - Date.now()) / 86400000));
+          setSelectedPkg(status.package);
+        }
+      } catch {
+        setCurrentStatus(null);
       }
     };
     load();
@@ -229,18 +233,20 @@ const PaymentScreen = () => {
     if (!selectedPkg) return;
     setProcessing(true);
 
-    // Simulate 2s payment processing
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const status = await activateVip(selectedPkg);
+      const left = Math.ceil((status.expiresAt - Date.now()) / 86400000);
 
-    // Activate VIP
-    const status = await activateVip(selectedPkg);
-    const left = Math.ceil((status.expiresAt - Date.now()) / 86400000);
-
-    setProcessing(false);
-    setShowQR(false);
-    setShowSuccess(true);
-    setCurrentStatus(status);
-    setDaysLeft(left);
+      setShowQR(false);
+      setShowSuccess(true);
+      setCurrentStatus(status);
+      setDaysLeft(left);
+    } catch (error: any) {
+      Alert.alert('Thanh toán chưa hoàn tất', error?.message || 'Không thể kích hoạt gói VIP lúc này.');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const handleSuccessClose = () => {

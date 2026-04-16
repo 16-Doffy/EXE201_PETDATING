@@ -3,6 +3,7 @@ export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   PhoneRegister: undefined;
+  ResetPassword: undefined;
   CreatePetProfile: undefined;
   HealthInfo: undefined;
   Payment: undefined;
@@ -28,6 +29,7 @@ export type MainTabParamList = {
 export type UserModel = {
   id: string;
   email: string;
+  role?: 'user' | 'admin';
   createdAt?: number;
 };
 

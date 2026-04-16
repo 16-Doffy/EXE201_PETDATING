@@ -7,12 +7,19 @@ export const useAuth = () => {
 
   useEffect(() => {
     const unsubscribe = subscribeAuth(setUser);
+    const fallbackId = setTimeout(() => {
+      setLoading(false);
+    }, 4500);
 
     bootstrapAuth().finally(() => {
+      clearTimeout(fallbackId);
       setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      clearTimeout(fallbackId);
+      unsubscribe();
+    };
   }, []);
 
   return { user, loading };

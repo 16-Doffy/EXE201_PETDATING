@@ -15,7 +15,7 @@ type Props = {
 const PrimaryButton = ({ title, onPress, style, variant = 'primary', disabled, className, textClassName }: Props) => {
   const isOutline = variant === 'outline';
 
-  const getColors = () => {
+  const getColors = (): readonly [string, string] => {
     switch (variant) {
       case 'yellow': return ['#F8BE38', '#F59E0B'];
       case 'secondary': return ['#E0EAFC', '#CFDEF3'];

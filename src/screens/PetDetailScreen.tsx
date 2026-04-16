@@ -3,12 +3,16 @@ import { Image, ScrollView, Text, View, TouchableOpacity, Dimensions, ActivityIn
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { RootStackParamList, PetModel } from '@/types';
-import { getPetById, likePet, unlikePet, getPetByOwnerId, addLocalMatch, getMatches } from '@/services/petService';
+import { getPetById, likePet, unlikePet, getPetByOwnerId, getMatches } from '@/services/petService';
 import { LinearGradient } from 'expo-linear-gradient';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PetDetail'>;
 
 const { width } = Dimensions.get('window');
+
+const asId = (value: unknown) => String(value ?? '');
+const matchHasPet = (match: { pet1: string; pet2: string }, petId: string) =>
+  asId(match.pet1) === petId || asId(match.pet2) === petId;
 
 const PetDetailScreen = ({ route, navigation }: Props) => {
   const [pet, setPet] = useState<PetModel | null>(null);
@@ -28,7 +32,7 @@ const PetDetailScreen = ({ route, navigation }: Props) => {
         if (me) setMyPetId(me.id);
         setPet(item);
 
-        const matched = matches.some(m => m.pet1 === route.params.petId || m.pet2 === route.params.petId);
+        const matched = matches.some((m) => matchHasPet(m, route.params.petId));
         setIsLiked(matched);
       } catch {
         setPet(null);
@@ -50,7 +54,6 @@ const PetDetailScreen = ({ route, navigation }: Props) => {
         } else {
             const result = await likePet(pet.id);
             setIsLiked(true);
-            if (myPetId) await addLocalMatch(myPetId, pet);
 
             if (result.matched) {
                 Alert.alert("It's a Match!", `Bạn và ${pet.name} đã thích nhau!`);
@@ -67,7 +70,7 @@ const PetDetailScreen = ({ route, navigation }: Props) => {
     if (!pet) return;
     try {
         const matches = await getMatches();
-        const match = matches.find(m => m.pet1 === pet.id || m.pet2 === pet.id);
+        const match = matches.find((m) => matchHasPet(m, pet.id) && matchHasPet(m, myPetId));
         if (match) {
             navigation.navigate('Chat', {
                 matchId: match.id,

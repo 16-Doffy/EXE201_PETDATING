@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   ScrollView,
   StatusBar,
@@ -12,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { CommonActions, useNavigation } from '@react-navigation/native';
 import { apiRequest } from '@/services/api';
+import { getCurrentUser, logout } from '@/services/authService';
 
 type DashboardStats = {
   totalUsers: number;
@@ -39,6 +41,7 @@ type TabKey = 'overview' | 'vip' | 'users';
 
 const AdminDashboardScreen = () => {
   const navigation = useNavigation<any>();
+  const adminUser = getCurrentUser();
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>('overview');
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -82,6 +85,19 @@ const AdminDashboardScreen = () => {
     if (tab === 'vip') fetchVipUsers();
     if (tab === 'users') fetchAllUsers();
   }, [fetchDashboard, tab, fetchVipUsers, fetchAllUsers]);
+
+  const handleLogout = useCallback(() => {
+    Alert.alert('Đăng xuất admin', 'Bạn muốn thoát khỏi tài khoản quản trị viên này?', [
+      { text: 'Ở lại', style: 'cancel' },
+      {
+        text: 'Đăng xuất',
+        style: 'destructive',
+        onPress: async () => {
+          await logout();
+        },
+      },
+    ]);
+  }, []);
 
   const StatCard = ({
     label,
@@ -162,8 +178,44 @@ const AdminDashboardScreen = () => {
             </View>
             <Text className="text-gray-400 text-xs mt-0.5">PetDating Control Center</Text>
           </View>
-          <TouchableOpacity onPress={fetchDashboard} className="p-2">
-            <Ionicons name="reload" size={20} color="#8b5cf6" />
+          <View className="flex-row items-center">
+            <TouchableOpacity onPress={fetchDashboard} className="p-2 mr-1">
+              <Ionicons name="reload" size={20} color="#8b5cf6" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleLogout}
+              className="w-10 h-10 rounded-full items-center justify-center"
+              style={{ backgroundColor: '#2d1050', borderWidth: 1, borderColor: '#4a1a7a' }}
+            >
+              <Ionicons name="log-out-outline" size={18} color="#fda4af" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View
+          className="flex-row items-center justify-between mt-4 rounded-2xl px-4 py-3"
+          style={{ backgroundColor: '#241042', borderWidth: 1, borderColor: '#4a1a7a' }}
+        >
+          <View className="flex-row items-center flex-1 mr-3">
+            <View
+              className="w-12 h-12 rounded-2xl items-center justify-center"
+              style={{ backgroundColor: '#3b1a63' }}
+            >
+              <MaterialCommunityIcons name="account-cog" size={22} color="#d8b4fe" />
+            </View>
+            <View className="ml-3 flex-1">
+              <Text className="text-white font-bold text-sm">Hồ sơ quản trị</Text>
+              <Text className="text-purple-200 text-xs mt-0.5" numberOfLines={1}>
+                {adminUser?.email || 'admin@petdating.app'}
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            onPress={handleLogout}
+            className="rounded-full px-4 py-2"
+            style={{ backgroundColor: '#4a1a7a' }}
+          >
+            <Text className="text-white font-semibold text-xs">Đăng xuất</Text>
           </TouchableOpacity>
         </View>
 

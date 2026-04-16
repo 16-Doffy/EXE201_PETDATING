@@ -13,19 +13,77 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getExplorePets, likePet, getPetByOwnerId } from '@/services/petService';
+import { getExplorePets, getPetByOwnerId, likePet } from '@/services/petService';
 import { PetModel } from '@/types';
 import { getRandomImage } from '@/constants/images';
 import { useAuth } from '@/hooks/useAuth';
+import AppIcon from '@/components/ui/AppIcon';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 120;
 
+const resolvePetType = (pet?: PetModel | null): 'Dog' | 'Cat' => {
+  if (pet?.type === 'Dog' || pet?.type === 'Cat') return pet.type;
+
+  const source = [
+    pet?.breed,
+    pet?.name,
+    pet?.bio,
+    Array.isArray(pet?.tags) ? pet?.tags.join(' ') : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  if (['cat', 'meo', 'mèo', 'anh', 'mun', 'mướp', 'scottish', 'persian'].some((item) => source.includes(item))) {
+    return 'Cat';
+  }
+
+  return 'Dog';
+};
+
+const ActionButton = ({
+  label,
+  icon,
+  iconColor,
+  onPress,
+  disabled,
+  accent,
+}: {
+  label: string;
+  icon: 'refresh' | 'close' | 'heart' | 'sparkle';
+  iconColor: string;
+  onPress: () => void;
+  disabled?: boolean;
+  accent?: boolean;
+}) => (
+  <TouchableOpacity
+    disabled={disabled}
+    onPress={onPress}
+    className={`items-center ${disabled ? 'opacity-40' : ''}`}
+  >
+    <View
+      className={`w-16 h-16 rounded-[22px] items-center justify-center shadow-sm ${
+        accent ? 'bg-[#ff4f96]' : 'bg-white'
+      }`}
+      style={{
+        shadowColor: accent ? '#ff4f96' : '#cbd5e1',
+        shadowOpacity: accent ? 0.35 : 0.18,
+        shadowRadius: accent ? 12 : 10,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 5,
+      }}
+    >
+      <AppIcon name={icon} size={28} color={iconColor} />
+    </View>
+    <Text className="mt-2 text-[12px] font-semibold text-slate-500">{label}</Text>
+  </TouchableOpacity>
+);
+
 const HomeSwipeScreen = ({ navigation }: any) => {
   const { user } = useAuth();
-  const isAdmin = (user as any)?.role === 'admin';
+  const isAdmin = user?.role === 'admin';
 
   const [pets, setPets] = useState<PetModel[]>([]);
   const [myPet, setMyPet] = useState<PetModel | null>(null);
@@ -39,10 +97,7 @@ const HomeSwipeScreen = ({ navigation }: any) => {
   const loadPets = useCallback(async () => {
     setLoading(true);
     try {
-      const [data, me] = await Promise.all([
-        getExplorePets(),
-        getPetByOwnerId(),
-      ]);
+      const [data, me] = await Promise.all([getExplorePets(), getPetByOwnerId()]);
       setPets(Array.isArray(data) ? data : []);
       setMyPet(me);
       setCurrentIndex(0);
@@ -59,7 +114,7 @@ const HomeSwipeScreen = ({ navigation }: any) => {
   }, [loadPets]);
 
   const filteredPets = useMemo(
-    () => pets.filter((p) => (p.type || 'Dog') === category),
+    () => pets.filter((pet) => resolvePetType(pet) === category),
     [pets, category]
   );
 
@@ -85,7 +140,7 @@ const HomeSwipeScreen = ({ navigation }: any) => {
         Alert.alert('Match 🎉', `Bạn và ${pet.name} đã match. Mở chat ngay nhé!`);
       }
     } catch {
-      // silent fallback
+      Alert.alert('Lỗi', 'Không thể gửi lượt thích lúc này.');
     }
   };
 
@@ -141,7 +196,7 @@ const HomeSwipeScreen = ({ navigation }: any) => {
 
   const rotate = position.x.interpolate({
     inputRange: [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
-    outputRange: ['-14deg', '0deg', '14deg'],
+    outputRange: ['-12deg', '0deg', '12deg'],
     extrapolate: 'clamp',
   });
 
@@ -160,43 +215,54 @@ const HomeSwipeScreen = ({ navigation }: any) => {
   const showEmpty =
     !loading && (filteredPets.length === 0 || currentIndex >= filteredPets.length);
 
+  const currentType = resolvePetType(currentPet);
+  const cardImage = currentPet?.image || getRandomImage(currentType, currentPet?.id);
+  const cardSubtitle =
+    currentPet?.bio?.trim() ||
+    `${currentPet?.name || 'Bé'} đang tìm một người bạn phù hợp để cùng vui chơi mỗi ngày.`;
+
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <LinearGradient colors={['#fff7fb', '#ffffff']} className="absolute inset-0" />
+    <SafeAreaView className="flex-1 bg-[#fff8fb]">
+      <LinearGradient colors={['#fff9fc', '#fff3f6', '#ffffff']} className="absolute inset-0" />
 
-      <View className="px-5 pt-2 pb-3 flex-row items-center justify-between">
-        {/* Avatar & tên pet của mình */}
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Profile')}
-          className="flex-row items-center"
+      <View className="px-4 pt-2">
+        <View
+          className="rounded-[28px] bg-white px-4 py-4 flex-row items-center justify-between"
+          style={{
+            shadowColor: '#f472b6',
+            shadowOpacity: 0.1,
+            shadowRadius: 16,
+            shadowOffset: { width: 0, height: 8 },
+            elevation: 4,
+          }}
         >
-          <Image
-            source={{ uri: myPet?.image || getRandomImage(myPet?.type || 'Dog', 'me') }}
-            className="w-10 h-10 rounded-full border-2 border-pink-300 bg-gray-100"
-          />
-          <View className="ml-2">
-            <Text className="text-xs text-gray-400 font-medium">Xin chào</Text>
-            <Text className="text-sm font-bold text-gray-800 leading-tight">
-              {myPet?.name || '...'}
-            </Text>
-          </View>
-        </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Profile')} className="flex-row items-center flex-1">
+            <Image
+              source={{ uri: myPet?.image || getRandomImage(myPet?.type || 'Dog', myPet?.id || 'me') }}
+              className="w-12 h-12 rounded-full border-2 border-pink-200 bg-rose-50"
+            />
+            <View className="ml-3">
+              <Text className="text-[12px] font-semibold text-slate-400">Xin chào</Text>
+              <Text className="text-[18px] font-black text-slate-800">{myPet?.name || 'Bossitive'}</Text>
+            </View>
+          </TouchableOpacity>
 
-        <Text className="text-2xl font-extrabold text-pink-500">PetDating</Text>
+          <Text className="text-[18px] font-black text-[#ff4f96]">PetDating</Text>
 
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Filter')}
-          className="w-11 h-11 rounded-full bg-gray-100 items-center justify-center"
-        >
-          <Ionicons name="options-outline" size={22} color="#111827" />
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Filter')}
+            className="ml-3 w-11 h-11 rounded-full bg-slate-100 items-center justify-center"
+          >
+            <AppIcon name="filter" size={22} color="#334155" />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <View className="px-5 pb-3">
-        <View className="bg-gray-100 rounded-full p-1 flex-row">
+      <View className="px-4 pt-4 pb-2">
+        <View className="rounded-[24px] bg-[#fff0f6] p-1.5 flex-row">
           {[
-            { key: 'Dog', label: 'Chó' },
-            { key: 'Cat', label: 'Mèo' },
+            { key: 'Dog', label: 'Chó', icon: 'paw' as const },
+            { key: 'Cat', label: 'Mèo', icon: 'cat' as const },
           ].map((item) => {
             const active = category === item.key;
             return (
@@ -207,9 +273,21 @@ const HomeSwipeScreen = ({ navigation }: any) => {
                   setCurrentIndex(0);
                   position.setValue({ x: 0, y: 0 });
                 }}
-                className={`flex-1 py-3 rounded-full items-center ${active ? 'bg-white' : ''}`}
+                className={`flex-1 rounded-[20px] py-3 flex-row items-center justify-center ${active ? 'bg-white' : ''}`}
+                style={
+                  active
+                    ? {
+                        shadowColor: '#fb7185',
+                        shadowOpacity: 0.14,
+                        shadowRadius: 10,
+                        shadowOffset: { width: 0, height: 5 },
+                        elevation: 3,
+                      }
+                    : undefined
+                }
               >
-                <Text className={`${active ? 'text-pink-500' : 'text-gray-400'} font-bold`}>
+                <AppIcon name={item.icon === 'cat' ? 'cat' : 'paw'} size={18} color={active ? '#ff4f96' : '#94a3b8'} />
+                <Text className={`ml-2 text-[14px] font-bold ${active ? 'text-[#ff4f96]' : 'text-slate-400'}`}>
                   {item.label}
                 </Text>
               </TouchableOpacity>
@@ -218,161 +296,182 @@ const HomeSwipeScreen = ({ navigation }: any) => {
         </View>
       </View>
 
-      <View className="flex-1 items-center justify-center px-4">
+      <View className="flex-1 px-4 pb-3">
         {isAdmin ? (
-          <View className="items-center px-8">
-            <View className="w-24 h-24 rounded-full items-center justify-center mb-6" style={{ backgroundColor: '#2d1050' }}>
-              <MaterialCommunityIcons name="shield-lock" size={52} color="#c084fc" />
+          <View className="flex-1 items-center justify-center px-8">
+            <View className="w-24 h-24 rounded-full items-center justify-center mb-6 bg-[#2d1050]">
+              <AppIcon name="shield" size={48} color="#c084fc" />
             </View>
-            <Text className="text-center text-xl font-bold text-gray-300">
-              Quản trị viên không thể sử dụng
+            <Text className="text-center text-xl font-bold text-slate-700">
+              Quản trị viên không thể ghép đôi
             </Text>
-            <Text className="text-center text-sm text-gray-500 mt-3">
+            <Text className="text-center text-sm text-slate-500 mt-3">
               Tài khoản Admin được giới hạn quyền truy cập tính năng ghép đôi thú cưng.
             </Text>
             <TouchableOpacity
               onPress={() => navigation.navigate('AdminDashboard')}
-              className="mt-8 rounded-full px-8 py-4"
-              style={{ backgroundColor: '#4a1a7a' }}
+              className="mt-8 rounded-full px-8 py-4 bg-[#4a1a7a]"
             >
               <Text className="text-purple-200 font-bold text-base">Mở Admin Dashboard</Text>
             </TouchableOpacity>
           </View>
         ) : loading ? (
-          <ActivityIndicator size="large" color="#ec4899" />
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator size="large" color="#ff4f96" />
+            <Text className="mt-3 text-sm font-medium text-slate-500">Đang tải thú cưng phù hợp...</Text>
+          </View>
         ) : showEmpty ? (
-          <View className="items-center px-8">
-            <Ionicons name="paw-outline" size={72} color="#cbd5e1" />
-            <Text className="text-center text-lg font-bold text-gray-500 mt-4">
-              {pets.length === 0
-                ? 'Chưa có thú cưng nào để khám phá'
-                : 'Bạn đã xem hết danh sách rồi'}
+          <View className="flex-1 items-center justify-center px-8">
+            <View className="w-24 h-24 rounded-full bg-white items-center justify-center shadow-sm">
+              <AppIcon name="paw" size={48} color="#cbd5e1" />
+            </View>
+            <Text className="text-center text-xl font-bold text-slate-700 mt-5">
+              {pets.length === 0 ? 'Chưa có thú cưng nào để khám phá' : 'Bạn đã xem hết danh sách rồi'}
             </Text>
-            <Text className="text-center text-sm text-gray-400 mt-2">
+            <Text className="text-center text-sm text-slate-500 mt-2">
               {pets.length === 0
-                ? 'Hãy seed dữ liệu mẫu từ backend (POST /pets/seed/demo)'
-                : ' Quay lại sau nhé!'}
+                ? 'Hãy seed dữ liệu mẫu từ backend để có thêm hồ sơ hiển thị.'
+                : 'Thử tải lại để xem các hồ sơ mới nhé.'}
             </Text>
             <TouchableOpacity
               onPress={loadPets}
-              className="mt-5 bg-pink-500 px-8 py-3 rounded-full"
+              className="mt-6 rounded-full px-8 py-3 bg-[#ff4f96]"
             >
               <Text className="text-white font-bold">Tải lại</Text>
             </TouchableOpacity>
           </View>
         ) : (
-          <Animated.View
-            {...panResponder.panHandlers}
-            style={{
-              width: SCREEN_WIDTH - 32,
-              transform: [
-                { translateX: position.x },
-                { translateY: position.y },
-                { rotate },
-              ],
-            }}
-            className="rounded-[32px] overflow-hidden bg-white shadow-xl"
-          >
-            <TouchableOpacity activeOpacity={0.95} onPress={() => setDetailPet(currentPet)}>
-              <Image
-                source={{ uri: currentPet?.image }}
-                style={{ width: '100%', height: 520 }}
-                resizeMode="cover"
-              />
-
-              <Animated.View
-                style={{ opacity: likeOpacity }}
-                className="absolute top-10 left-6 rotate-[-16deg]"
+          <View className="flex-1 items-center pt-1">
+            <Animated.View
+              {...panResponder.panHandlers}
+              style={{
+                width: Math.min(SCREEN_WIDTH - 32, 420),
+                transform: [{ translateX: position.x }, { translateY: position.y }, { rotate }],
+              }}
+            >
+              <TouchableOpacity
+                activeOpacity={0.96}
+                onPress={() => setDetailPet(currentPet)}
+                className="rounded-[32px] overflow-hidden bg-white"
+                style={{
+                  shadowColor: '#f472b6',
+                  shadowOpacity: 0.14,
+                  shadowRadius: 18,
+                  shadowOffset: { width: 0, height: 12 },
+                  elevation: 8,
+                }}
               >
-                <Text className="text-green-500 border-4 border-green-500 px-4 py-2 rounded-2xl text-3xl font-black">
-                  LIKE
-                </Text>
-              </Animated.View>
+                <View className="relative">
+                  <Image source={{ uri: cardImage }} style={{ width: '100%', height: 360 }} resizeMode="cover" />
 
-              <Animated.View
-                style={{ opacity: nopeOpacity }}
-                className="absolute top-10 right-6 rotate-[16deg]"
-              >
-                <Text className="text-red-500 border-4 border-red-500 px-4 py-2 rounded-2xl text-3xl font-black">
-                  NOPE
-                </Text>
-              </Animated.View>
+                  <Animated.View style={{ opacity: likeOpacity }} className="absolute top-5 left-5 rotate-[-14deg]">
+                    <Text className="text-green-500 border-4 border-green-500 px-4 py-2 rounded-2xl text-3xl font-black">
+                      LIKE
+                    </Text>
+                  </Animated.View>
 
-              <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.92)']}
-                className="absolute left-0 right-0 bottom-0 h-64 justify-end px-6 pb-7"
-              >
-                <View className="flex-row items-center">
-                  <Text className="text-white text-3xl font-extrabold">
-                    {currentPet?.name}, {currentPet?.age}
-                  </Text>
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={20}
-                    color="#4ade80"
-                    style={{ marginLeft: 8 }}
+                  <Animated.View style={{ opacity: nopeOpacity }} className="absolute top-5 right-5 rotate-[14deg]">
+                    <Text className="text-red-500 border-4 border-red-500 px-4 py-2 rounded-2xl text-3xl font-black">
+                      NOPE
+                    </Text>
+                  </Animated.View>
+
+                  <LinearGradient
+                    colors={['transparent', 'rgba(15,23,42,0.35)']}
+                    className="absolute left-0 right-0 bottom-0 h-24"
                   />
                 </View>
 
-                <View className="flex-row items-center mt-2">
-                  <Ionicons name="location-sharp" size={14} color="#cbd5e1" />
-                  <Text className="text-slate-300 ml-1 text-xs">{currentPet?.location}</Text>
-                </View>
+                <View className="bg-white px-5 pt-5 pb-6">
+                  <View className="flex-row items-start justify-between">
+                    <View className="flex-1 pr-3">
+                      <Text className="text-[30px] leading-8 font-black text-slate-900">
+                        {currentPet?.name}, {currentPet?.age}
+                      </Text>
+                      <View className="flex-row items-center mt-2">
+                        <AppIcon name="location" size={15} color="#ff4f96" />
+                        <Text className="ml-1 text-[13px] font-medium text-slate-500">
+                          {currentPet?.location}
+                        </Text>
+                      </View>
+                    </View>
 
-                <View className="flex-row flex-wrap mt-4">
-                  <View className="bg-white/15 px-3 py-2 rounded-full mr-2 mb-2">
-                    <Text className="text-white text-xs font-bold">{currentPet?.breed}</Text>
+                    <View className="rounded-full bg-rose-50 px-3 py-2 flex-row items-center">
+                      <AppIcon name={currentType === 'Cat' ? 'cat' : 'paw'} size={16} color="#ff4f96" />
+                      <Text className="ml-1 text-[12px] font-bold text-[#ff4f96]">
+                        {currentType === 'Cat' ? 'Mèo' : 'Chó'}
+                      </Text>
+                    </View>
                   </View>
-                  <View className="bg-white/15 px-3 py-2 rounded-full mr-2 mb-2">
-                    <Text className="text-white text-xs font-bold">
-                      {currentPet?.gender === 'Male'
-                        ? 'Đực'
-                        : currentPet?.gender === 'Female'
-                        ? 'Cái'
-                        : 'Khác'}
-                    </Text>
+
+                  <Text className="mt-4 text-[14px] leading-6 text-slate-600" numberOfLines={3}>
+                    {cardSubtitle}
+                  </Text>
+
+                  {Array.isArray(currentPet?.tags) && currentPet.tags.length > 0 ? (
+                    <View className="mt-4 flex-row items-center rounded-2xl bg-rose-50 px-3 py-3">
+                      <AppIcon name="sparkle" size={16} color="#ff4f96" />
+                      <Text className="ml-2 flex-1 text-[12px] font-medium text-rose-600" numberOfLines={2}>
+                        {currentPet.tags.slice(0, 3).join(' · ')}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  <View className="mt-4 flex-row flex-wrap">
+                    <View className="mr-2 mb-2 rounded-full bg-slate-100 px-3 py-2">
+                      <Text className="text-[12px] font-bold text-slate-700">{currentPet?.breed || 'Thú cưng đáng yêu'}</Text>
+                    </View>
+                    <View className="mr-2 mb-2 rounded-full bg-slate-100 px-3 py-2">
+                      <Text className="text-[12px] font-bold text-slate-700">
+                        {currentPet?.gender === 'Male' ? 'Đực' : currentPet?.gender === 'Female' ? 'Cái' : 'Khác'}
+                      </Text>
+                    </View>
+                    {!!currentPet?.weight && (
+                      <View className="mr-2 mb-2 rounded-full bg-slate-100 px-3 py-2">
+                        <Text className="text-[12px] font-bold text-slate-700">{currentPet.weight}</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
-              </LinearGradient>
-            </TouchableOpacity>
-          </Animated.View>
+              </TouchableOpacity>
+            </Animated.View>
+
+            <View className="w-full max-w-[420px] mt-5 rounded-[28px] bg-white px-5 py-4">
+              <Text className="text-center text-[13px] font-semibold text-slate-400">
+                Vuốt ngang hoặc dùng các nút bên dưới để chọn nhanh
+              </Text>
+              <View className="mt-4 flex-row items-center justify-between">
+                <ActionButton
+                  label="Quay lại"
+                  icon="refresh"
+                  iconColor="#64748b"
+                  onPress={handleUndo}
+                  disabled={currentIndex === 0}
+                />
+                <ActionButton
+                  label="Bỏ qua"
+                  icon="close"
+                  iconColor="#ef4444"
+                  onPress={swipeLeft}
+                />
+                <ActionButton
+                  label="Thích"
+                  icon="heart"
+                  iconColor="#ffffff"
+                  onPress={swipeRight}
+                  accent
+                />
+                <ActionButton
+                  label="Tải lại"
+                  icon="sparkle"
+                  iconColor="#f59e0b"
+                  onPress={loadPets}
+                />
+              </View>
+            </View>
+          </View>
         )}
       </View>
-
-      {!loading && !showEmpty && !isAdmin && (
-        <View className="px-5 pb-8 pt-4 flex-row items-center justify-around">
-          <TouchableOpacity
-            disabled={currentIndex === 0}
-            onPress={handleUndo}
-            className={`w-14 h-14 rounded-full bg-white items-center justify-center shadow ${
-              currentIndex === 0 ? 'opacity-40' : ''
-            }`}
-          >
-            <MaterialCommunityIcons name="backup-restore" size={24} color="#64748b" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={swipeLeft}
-            className="w-16 h-16 rounded-full bg-white items-center justify-center shadow"
-          >
-            <Ionicons name="close" size={34} color="#f43f5e" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={swipeRight}
-            className="w-16 h-16 rounded-full bg-pink-500 items-center justify-center shadow"
-          >
-            <Ionicons name="heart" size={32} color="#ffffff" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={loadPets}
-            className="w-14 h-14 rounded-full bg-white items-center justify-center shadow"
-          >
-            <Ionicons name="refresh" size={24} color="#f59e0b" />
-          </TouchableOpacity>
-        </View>
-      )}
 
       <Modal
         visible={!!detailPet}
@@ -381,42 +480,50 @@ const HomeSwipeScreen = ({ navigation }: any) => {
         onRequestClose={() => setDetailPet(null)}
       >
         {detailPet && (
-          <SafeAreaView className="flex-1 bg-white">
-            <View className="px-4 py-3 flex-row items-center border-b border-gray-100">
+          <SafeAreaView className="flex-1 bg-[#fff9fb]">
+            <View className="px-4 py-3 flex-row items-center">
               <TouchableOpacity onPress={() => setDetailPet(null)} className="p-2">
-                <Ionicons name="close" size={28} color="#111827" />
+                <AppIcon name="close" size={26} color="#111827" />
               </TouchableOpacity>
-              <Text className="flex-1 text-center text-lg font-bold text-gray-900 pr-10">
-                Thông tin thú cưng
+              <Text className="flex-1 text-center text-lg font-bold text-slate-900 pr-10">
+                Hồ sơ thú cưng
               </Text>
             </View>
 
-            <ScrollView>
+            <ScrollView showsVerticalScrollIndicator={false}>
               <Image
-                source={{ uri: detailPet.image }}
+                source={{ uri: detailPet.image || getRandomImage(resolvePetType(detailPet), detailPet.id) }}
                 style={{ width: '100%', height: 320 }}
                 resizeMode="cover"
               />
 
               <View className="px-5 py-5">
-                <Text className="text-3xl font-extrabold text-gray-900">
+                <Text className="text-3xl font-black text-slate-900">
                   {detailPet.name}, {detailPet.age}
                 </Text>
 
-                <View className="mt-4">
-                  <Text className="text-gray-500 leading-6">
-                    {detailPet.bio || 'Chưa có mô tả cho thú cưng này.'}
-                  </Text>
+                <View className="mt-3 flex-row items-center">
+                  <AppIcon name="location" size={15} color="#ff4f96" />
+                  <Text className="ml-1 text-slate-500">{detailPet.location}</Text>
                 </View>
 
-                <View className="mt-5 space-y-2">
-                  <Text className="text-gray-800 font-medium">Giống: {detailPet.breed}</Text>
-                  <Text className="text-gray-800 font-medium">Giới tính: {detailPet.gender}</Text>
-                  <Text className="text-gray-800 font-medium">Địa điểm: {detailPet.location}</Text>
-                  {!!detailPet.ownerContact && (
-                    <Text className="text-gray-800 font-medium">
-                      Liên hệ: {detailPet.ownerContact}
+                <Text className="mt-5 text-[15px] leading-7 text-slate-600">
+                  {detailPet.bio || 'Chưa có mô tả cho thú cưng này.'}
+                </Text>
+
+                <View className="mt-5 flex-row flex-wrap">
+                  <View className="mr-2 mb-2 rounded-full bg-rose-50 px-3 py-2">
+                    <Text className="text-[12px] font-bold text-[#ff4f96]">{detailPet.breed}</Text>
+                  </View>
+                  <View className="mr-2 mb-2 rounded-full bg-slate-100 px-3 py-2">
+                    <Text className="text-[12px] font-bold text-slate-700">
+                      {detailPet.gender === 'Male' ? 'Đực' : detailPet.gender === 'Female' ? 'Cái' : 'Khác'}
                     </Text>
+                  </View>
+                  {!!detailPet.ownerContact && (
+                    <View className="mr-2 mb-2 rounded-full bg-slate-100 px-3 py-2">
+                      <Text className="text-[12px] font-bold text-slate-700">{detailPet.ownerContact}</Text>
+                    </View>
                   )}
                 </View>
 
@@ -425,9 +532,9 @@ const HomeSwipeScreen = ({ navigation }: any) => {
                     handleLike(detailPet);
                     setDetailPet(null);
                   }}
-                  className="mt-8 bg-pink-500 py-4 rounded-2xl items-center"
+                  className="mt-8 bg-[#ff4f96] py-4 rounded-2xl items-center"
                 >
-                  <Text className="text-white font-bold text-lg">Thích ngay ❤️</Text>
+                  <Text className="text-white font-bold text-lg">Thích ngay</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>

@@ -13,3 +13,10 @@
 .externalNativeBuild
 .cxx
 local.properties
+node_modules/**/build/
+*.log
+*.err
+*.apk
+*.png
+.expo/
+cloudflared.exe
