@@ -20,7 +20,10 @@ type DashboardStats = {
   vipUsers: number;
   freeUsers: number;
   totalRevenue: number;
+  totalOrders: number;
   packageStats: { spotlight_name: number; spotlight_profile: number };
+  last7Days: { date: string; label: string; revenue: number }[];
+  topBuyers: { email: string; total: number }[];
   recentSignups: {
     email: string;
     joinedAt: string;
@@ -37,7 +40,16 @@ type VipUser = {
   daysLeft: number;
 };
 
-type TabKey = 'overview' | 'vip' | 'users';
+type AdminTransaction = {
+  orderId: string;
+  email: string;
+  packageName: string;
+  amount: number;
+  paymentMethod: string;
+  createdAt: string;
+};
+
+type TabKey = 'overview' | 'vip' | 'users' | 'revenue';
 
 const AdminDashboardScreen = () => {
   const navigation = useNavigation<any>();
@@ -47,6 +59,10 @@ const AdminDashboardScreen = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [vipUsers, setVipUsers] = useState<VipUser[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<AdminTransaction[]>([]);
+  const [txPage, setTxPage] = useState(1);
+  const [txTotal, setTxTotal] = useState(0);
+  const [txLoading, setTxLoading] = useState(false);
   const [error, setError] = useState('');
 
   const fetchDashboard = useCallback(async () => {
@@ -80,11 +96,27 @@ const AdminDashboardScreen = () => {
     } catch {}
   }, []);
 
+  const fetchTransactions = useCallback(async (page = 1) => {
+    setTxLoading(true);
+    try {
+      const data = await apiRequest<{ transactions: AdminTransaction[]; total: number }>(
+        `/admin/transactions?page=${page}&limit=20`,
+        { auth: true }
+      );
+      setTransactions(page === 1 ? data.transactions : (prev) => [...prev, ...data.transactions]);
+      setTxTotal(data.total);
+      setTxPage(page);
+    } catch {} finally {
+      setTxLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchDashboard();
     if (tab === 'vip') fetchVipUsers();
     if (tab === 'users') fetchAllUsers();
-  }, [fetchDashboard, tab, fetchVipUsers, fetchAllUsers]);
+    if (tab === 'revenue') fetchTransactions(1);
+  }, [fetchDashboard, tab, fetchVipUsers, fetchAllUsers, fetchTransactions]);
 
   const handleLogout = useCallback(() => {
     Alert.alert('Đăng xuất admin', 'Bạn muốn thoát khỏi tài khoản quản trị viên này?', [
@@ -228,7 +260,7 @@ const AdminDashboardScreen = () => {
 
       {/* Tabs */}
       <View className="flex-row mx-4 mt-4 rounded-xl p-1" style={{ backgroundColor: '#1c0a3a' }}>
-        {(['overview', 'vip', 'users'] as TabKey[]).map((t) => (
+        {(['overview', 'vip', 'users', 'revenue'] as TabKey[]).map((t) => (
           <TouchableOpacity
             key={t}
             onPress={() => setTab(t)}
@@ -239,7 +271,7 @@ const AdminDashboardScreen = () => {
               className="font-semibold text-xs"
               style={{ color: tab === t ? '#e9d5ff' : '#6b7280' }}
             >
-              {t === 'overview' ? '📊 Tổng quan' : t === 'vip' ? '💎 VIP' : '👥 Người dùng'}
+              {t === 'overview' ? '📊 Tổng quan' : t === 'vip' ? '💎 VIP' : t === 'users' ? '👥 Người dùng' : '💰 Doanh thu'}
             </Text>
           </TouchableOpacity>
         ))}
@@ -442,6 +474,135 @@ const AdminDashboardScreen = () => {
                         <Text className="text-gray-500 text-xs">Free</Text>
                       </View>
                     )}
+                  </View>
+                </View>
+              )}
+            />
+          )}
+
+          {tab === 'revenue' && (
+            <FlatList
+              data={transactions}
+              keyExtractor={(item, i) => `${item.orderId}-${i}`}
+              contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
+              onEndReached={() => {
+                if (!txLoading && transactions.length < txTotal) {
+                  fetchTransactions(txPage + 1);
+                }
+              }}
+              onEndReachedThreshold={0.5}
+              ListHeaderComponent={
+                <View>
+                  {/* Summary stats */}
+                  <View className="flex-row mt-3 mb-4">
+                    <View className="flex-1 rounded-2xl p-4 mr-1.5" style={{ backgroundColor: '#1c0a2e', borderWidth: 1, borderColor: '#3d1a5c' }}>
+                      <View className="w-8 h-8 rounded-lg items-center justify-center mb-2" style={{ backgroundColor: '#16a34a20' }}>
+                        <Ionicons name="cash-outline" size={16} color="#4ade80" />
+                      </View>
+                      <Text className="text-green-400 font-extrabold text-xl">{formatCurrency(stats?.totalRevenue || 0)}</Text>
+                      <Text className="text-gray-500 text-[11px] mt-1">Tổng doanh thu</Text>
+                    </View>
+                    <View className="flex-1 rounded-2xl p-4 ml-1.5" style={{ backgroundColor: '#1c0a2e', borderWidth: 1, borderColor: '#3d1a5c' }}>
+                      <View className="w-8 h-8 rounded-lg items-center justify-center mb-2" style={{ backgroundColor: '#7c3aed20' }}>
+                        <MaterialCommunityIcons name="receipt" size={16} color="#c084fc" />
+                      </View>
+                      <Text className="text-purple-200 font-extrabold text-xl">{stats?.totalOrders || 0}</Text>
+                      <Text className="text-gray-500 text-[11px] mt-1">Đơn hàng</Text>
+                    </View>
+                  </View>
+
+                  {/* Top buyers */}
+                  {stats && stats.topBuyers && stats.topBuyers.length > 0 && (
+                    <View className="rounded-2xl p-5 mb-4" style={{ backgroundColor: '#1c0a2e', borderWidth: 1, borderColor: '#3d1a5c' }}>
+                      <Text className="text-purple-200 font-bold text-sm mb-3">🏆 Top người mua nhiều nhất</Text>
+                      {stats.topBuyers.map((buyer, i) => (
+                        <View
+                          key={buyer.email}
+                          className="flex-row items-center py-2.5"
+                          style={{ borderBottomWidth: i < stats.topBuyers.length - 1 ? 1 : 0, borderBottomColor: '#2d1050' }}
+                        >
+                          <View
+                            className="w-6 h-6 rounded-full items-center justify-center mr-3"
+                            style={{ backgroundColor: i === 0 ? '#FFD70020' : i === 1 ? '#C0C0C020' : i === 2 ? '#CD7F3220' : '#2d1050' }}
+                          >
+                            <Text className="text-xs font-black" style={{ color: i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : '#6b7280' }}>
+                              {i + 1}
+                            </Text>
+                          </View>
+                          <Text className="text-white text-sm flex-1" numberOfLines={1}>{buyer.email}</Text>
+                          <Text className="text-green-400 text-sm font-bold">{formatCurrency(buyer.total)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* 7 ngày gần đây */}
+                  {stats && stats.last7Days && stats.last7Days.length > 0 && (
+                    <View className="rounded-2xl p-5 mb-4" style={{ backgroundColor: '#1c0a2e', borderWidth: 1, borderColor: '#3d1a5c' }}>
+                      <Text className="text-purple-200 font-bold text-sm mb-4">📅 Doanh thu 7 ngày gần đây</Text>
+                      <View className="flex-row items-end justify-between h-24">
+                        {stats.last7Days.map((day) => {
+                          const maxRev = Math.max(...stats.last7Days.map((d) => d.revenue), 1);
+                          const height = Math.max((day.revenue / maxRev) * 80, day.revenue > 0 ? 8 : 0);
+                          return (
+                            <View key={day.date} className="flex-1 items-center mx-1">
+                              <Text className="text-gray-500 text-[10px] mb-1">
+                                {new Intl.NumberFormat('vi-VN').format(day.revenue / 1000).slice(0, 4)}K
+                              </Text>
+                              <View
+                                className="w-full rounded-t-lg"
+                                style={{ height, backgroundColor: day.revenue > 0 ? '#4ade80' : '#2d1050' }}
+                              />
+                              <Text className="text-gray-500 text-[10px] mt-1">{day.label}</Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Header danh sách giao dịch */}
+                  <View className="flex-row items-center justify-between mb-3">
+                    <Text className="text-purple-200 font-bold text-sm">📋 Danh sách giao dịch</Text>
+                    <TouchableOpacity onPress={() => fetchTransactions(1)} className="p-1">
+                      <Ionicons name="reload" size={16} color="#8b5cf6" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              }
+              ListEmptyComponent={
+                <View className="items-center py-12">
+                  <MaterialCommunityIcons name="file-document-outline" size={48} color="#333" />
+                  <Text className="text-gray-500 mt-3 text-sm">Chưa có giao dịch nào</Text>
+                </View>
+              }
+              ListFooterComponent={
+                txLoading ? (
+                  <View className="py-6 items-center">
+                    <ActivityIndicator size="small" color="#8b5cf6" />
+                  </View>
+                ) : null
+              }
+              renderItem={({ item }) => (
+                <View
+                  className="flex-row items-center py-4 rounded-xl px-4 mb-2"
+                  style={{ backgroundColor: '#1c0a2e', borderWidth: 1, borderBottomColor: '#2d1050' }}
+                >
+                  <View className="w-10 h-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: '#2d1050' }}>
+                    <MaterialCommunityIcons name="diamond-stone" size={18} color="#FFD700" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-white text-sm font-medium" numberOfLines={1}>{item.email}</Text>
+                    <Text className="text-gray-500 text-[11px] mt-0.5">
+                      {formatDate(item.createdAt)} · {item.paymentMethod?.toUpperCase()}
+                    </Text>
+                    <Text className="text-gray-400 text-[10px] font-mono mt-0.5">{item.orderId}</Text>
+                  </View>
+                  <View className="items-end">
+                    <Text className="text-green-400 font-bold text-sm">{formatCurrency(item.amount)}</Text>
+                    <View className="rounded-full px-2 py-1 mt-1" style={{ backgroundColor: '#16a34a20' }}>
+                      <Text className="text-green-400 text-[10px] font-bold">{item.packageName}</Text>
+                    </View>
                   </View>
                 </View>
               )}

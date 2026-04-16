@@ -7,6 +7,7 @@ export type RootStackParamList = {
   CreatePetProfile: undefined;
   HealthInfo: undefined;
   Payment: undefined;
+  TransactionHistory: undefined;
   MyProfile: undefined;
   Settings: undefined;
   PrivacyPolicy: undefined;

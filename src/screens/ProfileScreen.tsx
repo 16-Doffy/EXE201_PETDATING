@@ -18,7 +18,7 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
-type ProfileMenuRoute = 'Payment' | 'MyProfile' | 'HealthInfo' | 'Settings' | 'PrivacyPolicy';
+type ProfileMenuRoute = 'Payment' | 'TransactionHistory' | 'MyProfile' | 'HealthInfo' | 'Settings' | 'PrivacyPolicy';
 
 type MenuItem = {
   key: string;
@@ -137,6 +137,13 @@ const ProfileScreen = ({ navigation }: Props) => {
         route: 'Payment',
         premium: true,
         description: 'Mở thêm quyền lợi nổi bật hồ sơ',
+      },
+      {
+        key: 'transaction-history',
+        label: 'Lịch sử giao dịch',
+        icon: 'receipt',
+        route: 'TransactionHistory',
+        description: 'Xem hóa đơn và lịch sử mua VIP',
       },
       { key: 'my-profile', label: 'Hồ sơ của tôi', icon: 'profile-card', route: 'MyProfile', description: 'Xem và chỉnh sửa thông tin của bé' },
       { key: 'health', label: 'Thông tin sức khỏe', icon: 'health', route: 'HealthInfo', description: 'Lưu cân nặng, tiêm ngừa, tình trạng' },

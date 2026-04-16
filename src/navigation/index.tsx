@@ -25,6 +25,7 @@ import AboutAppScreen from '@/screens/AboutAppScreen';
 import FaqScreen from '@/screens/FaqScreen';
 import FilterScreen from '@/screens/FilterScreen';
 import AdminDashboardScreen from '@/screens/AdminDashboardScreen';
+import TransactionHistoryScreen from '@/screens/TransactionHistoryScreen';
 import { useAuth } from '@/hooks/useAuth';
 import { getPetByOwnerId, subscribePetProfile } from '@/services/petService';
 import AppIcon from '@/components/ui/AppIcon';
@@ -189,6 +190,7 @@ const AppNavigator = () => {
           <Stack.Screen name="Chat" component={ChatScreen} />
           <Stack.Screen name="HealthInfo" component={HealthInfoScreen} />
           <Stack.Screen name="Payment" component={PaymentScreen} />
+          <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen} />
           <Stack.Screen name="MyProfile" component={MyProfileScreen} />
           <Stack.Screen name="Settings" component={SettingsScreen} />
           <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
