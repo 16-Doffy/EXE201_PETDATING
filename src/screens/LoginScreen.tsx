@@ -33,9 +33,12 @@ const LoginScreen = ({ navigation }: Props) => {
       setLoading(true);
       await loginWithEmail(emailOrPhone, password);
     } catch (error: any) {
-      const message = error?.message || 'Đã có lỗi xảy ra khi đăng nhập.';
+      const rawMessage = error?.message || 'Đã có lỗi xảy ra khi đăng nhập.';
+      const message = /invalid credentials/i.test(rawMessage)
+        ? 'Sai mật khẩu hoặc tài khoản admin trên máy chủ chưa được đồng bộ.'
+        : rawMessage;
 
-      if (/sai mật khẩu/i.test(message)) {
+      if (/sai mật khẩu|đồng bộ/i.test(message)) {
         Alert.alert('Đăng nhập thất bại', message, [
           { text: 'Hủy', style: 'cancel' },
           {

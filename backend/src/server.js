@@ -9,6 +9,7 @@ const socialRoutes = require('./routes/socialRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const { ensureAdminAccount, repairUserCollection } = require('./utils/userMaintenance');
 
 dotenv.config();
 
@@ -37,6 +38,8 @@ const start = async () => {
   }
 
   await mongoose.connect(mongoUri);
+  await repairUserCollection();
+  await ensureAdminAccount();
   app.listen(port, () => {
     console.log(`Bossitive backend running on http://localhost:${port}`);
   });
