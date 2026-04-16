@@ -287,6 +287,11 @@ const MatchesScreen = ({ navigation }: Props) => {
     return unsubscribe;
   }, [loadMatches]);
 
+  // Initial load khi mount
+  useEffect(() => {
+    loadMatches();
+  }, []);
+
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],

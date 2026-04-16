@@ -15,6 +15,7 @@ type PetProfileListener = (pet: PetModel | null) => void;
 const LOCAL_MATCHES_KEY = 'bossitive_local_matches';
 const LOCAL_PET_KEY = 'bossitive_local_pet_profile';
 const PENDING_MATCH_KEY = 'bossitive_pending_match';
+const LIKED_IDS_KEY = 'bossitive_liked_ids';
 const petProfileListeners = new Set<PetProfileListener>();
 
 const toTimestamp = (value: unknown) => {
@@ -153,7 +154,7 @@ export const subscribePetProfile = (listener: PetProfileListener) => {
 };
 
 export const clearPetCache = async () => {
-  await AsyncStorage.multiRemove([LOCAL_PET_KEY, LOCAL_MATCHES_KEY]);
+  await AsyncStorage.multiRemove([LOCAL_PET_KEY, LOCAL_MATCHES_KEY, LIKED_IDS_KEY]);
   emitPetProfile(null);
   emitMatchUpdate();
 };
@@ -193,8 +194,27 @@ export const getPetById = async (petId: string) => {
 };
 
 export const getExplorePets = async () => {
-  const data = await apiRequest<{ pets: PetModel[] }>('/pets/explore', { auth: true });
-  return (data.pets || []).map(normalizePet);
+  const [petsResult, likedIds] = await Promise.all([
+    apiRequest<{ pets: PetModel[] }>('/pets/explore', { auth: true }),
+    getLikedIds(),
+  ]);
+  return { pets: (petsResult.pets || []).map(normalizePet), likedIds };
+};
+
+export const getLikedIds = async (): Promise<string[]> => {
+  try {
+    const data = await apiRequest<{ likedIds: string[] }>('/social/liked-ids', { auth: true });
+    const ids = data.likedIds || [];
+    await AsyncStorage.setItem(LIKED_IDS_KEY, JSON.stringify(ids));
+    return ids;
+  } catch {
+    try {
+      const cached = await AsyncStorage.getItem(LIKED_IDS_KEY);
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  }
 };
 
 export const likePet = async (toPetId: string, fallbackPet?: PetModel) => {
@@ -207,7 +227,6 @@ export const likePet = async (toPetId: string, fallbackPet?: PetModel) => {
   if (result.matched && result.matchId) {
     const myPet = await readLocalPet();
     if (myPet) {
-      // Ưu tiên dùng pet từ UI (fallbackPet) vì getPetById có thể fail
       const petToSave = fallbackPet
         ? normalizePet(fallbackPet)
         : await getPetById(toPetId).catch(() => null);
@@ -215,7 +234,6 @@ export const likePet = async (toPetId: string, fallbackPet?: PetModel) => {
       if (petToSave) {
         await addLocalMatch(myPet.id, petToSave, result.matchId);
 
-        // Lưu pending match để MatchesScreen đọc khi được focus
         await AsyncStorage.setItem(PENDING_MATCH_KEY, JSON.stringify({
           matchId: result.matchId,
           pet: petToSave,
@@ -227,15 +245,33 @@ export const likePet = async (toPetId: string, fallbackPet?: PetModel) => {
     }
   }
 
+  // Cập nhật danh sách đã thích trong local cache
+  try {
+    const cached = await AsyncStorage.getItem(LIKED_IDS_KEY);
+    const ids: string[] = cached ? JSON.parse(cached) : [];
+    if (!ids.includes(toPetId)) {
+      await AsyncStorage.setItem(LIKED_IDS_KEY, JSON.stringify([...ids, toPetId]));
+    }
+  } catch {}
+
   return result;
 };
 
 export const unlikePet = async (toPetId: string) => {
-  return apiRequest<{ success: boolean }>('/social/unlike', {
+  const result = await apiRequest<{ success: boolean }>('/social/unlike', {
     method: 'POST',
     auth: true,
     body: { toPetId },
   });
+  if (result.success) {
+    try {
+      const cached = await AsyncStorage.getItem(LIKED_IDS_KEY);
+      const ids: string[] = cached ? JSON.parse(cached) : [];
+      const updated = ids.filter((id) => id !== toPetId);
+      await AsyncStorage.setItem(LIKED_IDS_KEY, JSON.stringify(updated));
+    } catch {}
+  }
+  return result;
 };
 
 export const unmatch = async (matchId: string) => {

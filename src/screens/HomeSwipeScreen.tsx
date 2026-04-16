@@ -91,14 +91,17 @@ const HomeSwipeScreen = ({ navigation }: any) => {
   const [category, setCategory] = useState<'Dog' | 'Cat'>('Dog');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [detailPet, setDetailPet] = useState<PetModel | null>(null);
+  const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
 
   const position = useRef(new Animated.ValueXY()).current;
 
   const loadPets = useCallback(async () => {
     setLoading(true);
     try {
-      const [data, me] = await Promise.all([getExplorePets(), getPetByOwnerId()]);
-      setPets(Array.isArray(data) ? data : []);
+      const [exploreResult, me] = await Promise.all([getExplorePets(), getPetByOwnerId()]);
+      const { pets: rawPets, likedIds: ids } = exploreResult;
+      setPets(Array.isArray(rawPets) ? rawPets : []);
+      setLikedIds(new Set(ids || []));
       setMyPet(me);
       setCurrentIndex(0);
       position.setValue({ x: 0, y: 0 });
@@ -136,6 +139,7 @@ const HomeSwipeScreen = ({ navigation }: any) => {
   const handleLike = async (pet: PetModel) => {
     try {
       const result = await likePet(pet.id, pet);
+      setLikedIds((prev) => new Set([...prev, pet.id]));
       if (result?.matched) {
         Alert.alert('Match 🎉', `Bạn và ${pet.name} đã match. Mở chat ngay nhé!`, [
           { text: 'OK' },
@@ -382,6 +386,14 @@ const HomeSwipeScreen = ({ navigation }: any) => {
                     colors={['transparent', 'rgba(15,23,42,0.35)']}
                     className="absolute left-0 right-0 bottom-0 h-24"
                   />
+
+                  {/* Đã thích badge */}
+                  {currentPet && likedIds.has(currentPet.id) && (
+                    <View className="absolute top-5 left-1/2 -translate-x-1/2 flex-row items-center bg-pink-500 px-3 py-1.5 rounded-full">
+                      <AppIcon name="heart" size={12} color="#fff" />
+                      <Text className="text-white text-[11px] font-bold ml-1.5">Đã thích rồi</Text>
+                    </View>
+                  )}
                 </View>
 
                 <View className="bg-white px-5 pt-5 pb-6">
