@@ -30,7 +30,8 @@ export type AppIconName =
   | 'male'
   | 'female'
   | 'sparkle'
-  | 'profile-card';
+  | 'profile-card'
+  | 'receipt';
 
 type Props = {
   name: AppIconName;
@@ -266,6 +267,15 @@ const AppIcon = ({ name, size = 22, color = '#334155', strokeWidth = 2 }: Props)
           <Path d="M6.8 16c.7-1.7 2.1-2.7 3.8-2.7S13.7 14.3 14.4 16" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
           <Line x1="16.2" y1="10" x2="18.2" y2="10" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
           <Line x1="15.5" y1="13.5" x2="18.2" y2="13.5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+        </Svg>
+      );
+    case 'receipt':
+      return (
+        <Svg {...commonProps(size)}>
+          <Path d="M5 4h14a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" stroke={color} strokeWidth={strokeWidth} />
+          <Line x1="8" y1="9" x2="16" y2="9" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+          <Line x1="8" y1="12" x2="13" y2="12" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+          <Line x1="8" y1="15" x2="11" y2="15" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
         </Svg>
       );
     default:
