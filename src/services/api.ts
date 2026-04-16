@@ -2,7 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
 const PUBLIC_API_URL = 'https://petdating-backend.onrender.com';
+const RUNTIME_API_CONFIG_URL =
+  'https://raw.githubusercontent.com/16-Doffy/EXE201_PETDATING/main/runtime-api-config.json';
 const LAST_SUCCESSFUL_API_URL_KEY = 'bossitive_last_successful_api_url';
+const RUNTIME_API_CONFIG_CACHE_KEY = 'bossitive_runtime_api_config';
 
 // Prefer the currently provisioned public backend first, then fall back to the longer-lived backup.
 const STATIC_API_BASE_URLS = Array.from(
@@ -18,6 +21,7 @@ const STATIC_API_BASE_URLS = Array.from(
 
 const TOKEN_KEY = 'bossitive_token';
 let lastSuccessfulBaseUrl: string | null = null;
+let runtimeApiConfigPromise: Promise<string[]> | null = null;
 
 class ApiResponseError extends Error {
   status: number;
@@ -53,9 +57,74 @@ export const getToken = async () => {
   return AsyncStorage.getItem(TOKEN_KEY);
 };
 
+const normalizeUrlList = (urls: Array<string | null | undefined>) =>
+  Array.from(new Set(urls.filter((url): url is string => typeof url === 'string' && !!url.trim())));
+
+const resolveRuntimeApiUrls = (payload: unknown) => {
+  if (!payload || typeof payload !== 'object') {
+    return [];
+  }
+
+  const primary =
+    'primaryApiUrl' in payload && typeof payload.primaryApiUrl === 'string' ? payload.primaryApiUrl : null;
+  const backups =
+    'backupApiUrls' in payload && Array.isArray(payload.backupApiUrls)
+      ? payload.backupApiUrls.filter((item): item is string => typeof item === 'string')
+      : [];
+
+  return normalizeUrlList([primary, ...backups]);
+};
+
+const loadRuntimeApiUrls = async () => {
+  if (runtimeApiConfigPromise) {
+    return runtimeApiConfigPromise;
+  }
+
+  runtimeApiConfigPromise = (async () => {
+    const cachedRaw = await AsyncStorage.getItem(RUNTIME_API_CONFIG_CACHE_KEY);
+    const cachedUrls = cachedRaw ? resolveRuntimeApiUrls(JSON.parse(cachedRaw)) : [];
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+    try {
+      const response = await fetch(RUNTIME_API_CONFIG_URL, {
+        method: 'GET',
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      });
+
+      clearTimeout(timeoutId);
+      if (!response.ok) {
+        return cachedUrls;
+      }
+
+      const payload = await response.json();
+      const urls = resolveRuntimeApiUrls(payload);
+
+      if (urls.length) {
+        AsyncStorage.setItem(RUNTIME_API_CONFIG_CACHE_KEY, JSON.stringify(payload)).catch(() => {});
+        return urls;
+      }
+
+      return cachedUrls;
+    } catch {
+      clearTimeout(timeoutId);
+      return cachedUrls;
+    }
+  })();
+
+  try {
+    return await runtimeApiConfigPromise;
+  } finally {
+    runtimeApiConfigPromise = null;
+  }
+};
+
 const getOrderedBaseUrls = async () => {
+  const runtimeUrls = await loadRuntimeApiUrls();
   const persisted = lastSuccessfulBaseUrl || (await AsyncStorage.getItem(LAST_SUCCESSFUL_API_URL_KEY));
-  const urls = [...STATIC_API_BASE_URLS];
+  const urls = normalizeUrlList([...runtimeUrls, ...STATIC_API_BASE_URLS]);
 
   if (persisted && urls.includes(persisted)) {
     return [persisted, ...urls.filter((url) => url !== persisted)];

@@ -1,0 +1,6 @@
+{
+  "primaryApiUrl": "https://ted-nation-unwrap-hepatitis.trycloudflare.com",
+  "backupApiUrls": [
+    "https://petdating-backend.onrender.com"
+  ]
+}
