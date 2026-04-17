@@ -64,11 +64,20 @@ const ChatBubble = ({
   text,
   isMine,
   time,
+  status,
 }: {
   text: string;
   isMine: boolean;
   time: number;
+  status?: ChatMessageModel['status'];
 }) => {
+  const metaLabel =
+    isMine && status === 'pending'
+      ? 'Dang cho dong bo'
+      : isMine && status === 'failed'
+        ? 'Chua gui'
+        : formatTime(time);
+
   if (isMine) {
     return (
       <View className="items-end px-4 py-1.5">
@@ -81,7 +90,7 @@ const ChatBubble = ({
           >
             <Text className="text-[15px] leading-5 text-white">{text}</Text>
           </LinearGradient>
-          <Text className="mt-1 text-right text-[11px] text-slate-400">{formatTime(time)}</Text>
+          <Text className="mt-1 text-right text-[11px] text-slate-400">{metaLabel}</Text>
         </View>
       </View>
     );
@@ -112,8 +121,11 @@ const ChatScreen = ({ route, navigation }: Props) => {
 
   const listRef = useRef<FlatList>(null);
 
-  const loadChat = useCallback(async () => {
-    setLoading(true);
+  const loadChat = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
+
     try {
       const [me, other, msgs] = await Promise.all([
         getPetByOwnerId(),
@@ -127,8 +139,10 @@ const ChatScreen = ({ route, navigation }: Props) => {
     } catch (error) {
       console.error('[Chat] load error', error);
     } finally {
-      setLoading(false);
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 120);
+      if (!silent) {
+        setLoading(false);
+        setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 120);
+      }
     }
   }, [matchId, otherPetId]);
 
@@ -138,7 +152,7 @@ const ChatScreen = ({ route, navigation }: Props) => {
 
   useEffect(() => {
     const intervalId = setInterval(() => {
-      loadChat();
+      loadChat(true);
     }, 4000);
 
     return () => clearInterval(intervalId);
@@ -298,6 +312,7 @@ const ChatScreen = ({ route, navigation }: Props) => {
                 text={message.text}
                 isMine={message.senderPetId === myPetId || message.senderPetId === 'me'}
                 time={message.createdAt || Date.now()}
+                status={message.status}
               />
             );
           }}

@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RootStackParamList, MainTabParamList } from '@/types';
 import SplashScreen from '@/screens/SplashScreen';
 import LoginScreen from '@/screens/LoginScreen';
@@ -67,61 +68,67 @@ const TabIcon = ({
   </View>
 );
 
-const MainTabs = () => (
-  <Tab.Navigator
-    screenOptions={({ route }) => ({
-      headerShown: false,
-      tabBarActiveTintColor: '#00B4DB',
-      tabBarInactiveTintColor: '#94A3B8',
-      tabBarShowLabel: false,
-      tabBarHideOnKeyboard: true,
-      tabBarStyle: {
-        borderTopWidth: 0,
-        height: 88,
-        paddingBottom: 12,
-        paddingTop: 10,
-        backgroundColor: '#FFFFFF',
-        elevation: 10,
-      },
-      tabBarIcon: ({ color, size, focused }) => {
-        if (route.name === 'Home') {
+const MainTabs = () => {
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = 72 + Math.max(insets.bottom, 12);
+
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarActiveTintColor: '#00B4DB',
+        tabBarInactiveTintColor: '#94A3B8',
+        tabBarShowLabel: false,
+        tabBarHideOnKeyboard: true,
+        sceneStyle: { backgroundColor: '#fff8fb' },
+        tabBarStyle: {
+          borderTopWidth: 0,
+          height: tabBarHeight,
+          paddingBottom: Math.max(insets.bottom, 12),
+          paddingTop: 8,
+          backgroundColor: '#FFFFFF',
+          elevation: 10,
+        },
+        tabBarIcon: ({ color, focused }) => {
+          if (route.name === 'Home') {
+            return (
+              <TabIcon
+                icon="home"
+                label="Trang chủ"
+                color={color}
+                focused={focused}
+              />
+            );
+          }
+
+          if (route.name === 'Matches') {
+            return (
+              <TabIcon
+                icon="chat"
+                label="Chat"
+                color={color}
+                focused={focused}
+              />
+            );
+          }
+
           return (
             <TabIcon
-              icon="home"
-              label="Trang chủ"
+              icon="profile"
+              label="Cá nhân"
               color={color}
               focused={focused}
             />
           );
-        }
-
-        if (route.name === 'Matches') {
-          return (
-            <TabIcon
-              icon="chat"
-              label="Chat"
-              color={color}
-              focused={focused}
-            />
-          );
-        }
-
-        return (
-          <TabIcon
-            icon="profile"
-            label="Cá nhân"
-            color={color}
-            focused={focused}
-          />
-        );
-      },
-    })}
-  >
-    <Tab.Screen name="Home" component={HomeSwipeScreen} options={{ tabBarLabel: 'Trang chủ' }} />
-    <Tab.Screen name="Matches" component={MatchesScreen} options={{ tabBarLabel: 'Trò chuyện' }} />
-    <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Cá nhân' }} />
-  </Tab.Navigator>
-);
+        },
+      })}
+    >
+      <Tab.Screen name="Home" component={HomeSwipeScreen} options={{ tabBarLabel: 'Trang chủ' }} />
+      <Tab.Screen name="Matches" component={MatchesScreen} options={{ tabBarLabel: 'Trò chuyện' }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Cá nhân' }} />
+    </Tab.Navigator>
+  );
+};
 
 const AppNavigator = () => {
   const { user, loading } = useAuth();

@@ -26,6 +26,7 @@ const normalizeMessage = (message: Partial<ChatMessageModel> & { id?: string }):
   type: message.type,
   image: message.image,
   seen: message.seen,
+  status: message.status,
 });
 
 const dedupeMessages = (messages: ChatMessageModel[]) => {
@@ -62,6 +63,16 @@ const writeLocalMap = async (map: LocalChatMap) => {
   await AsyncStorage.setItem(LOCAL_CHAT_KEY, JSON.stringify(map));
 };
 
+const persistLocalMessage = async (matchId: string, message: ChatMessageModel) => {
+  const localMap = await readLocalMap();
+  const current = localMap[matchId] ?? [];
+
+  await writeLocalMap({
+    ...localMap,
+    [matchId]: dedupeMessages([...current, message]),
+  });
+};
+
 export const clearChatCache = async () => {
   await AsyncStorage.removeItem(LOCAL_CHAT_KEY);
 };
@@ -86,25 +97,31 @@ export const getMessages = async (matchId: string): Promise<ChatMessageModel[]> 
 export const sendMessage = async (
   matchId: string,
   text: string,
-  _senderPetId = 'me'
+  senderPetId = 'me'
 ): Promise<ChatMessageModel> => {
-  const data = await apiRequest<{ message: ChatMessageModel }>(
-    `/chat/${matchId}/messages`,
-    {
-      method: 'POST',
-      auth: true,
-      body: { text },
-    }
-  );
+  try {
+    const data = await apiRequest<{ message: ChatMessageModel }>(
+      `/chat/${matchId}/messages`,
+      {
+        method: 'POST',
+        auth: true,
+        body: { text },
+      }
+    );
 
-  const message = normalizeMessage(data.message);
-  const localMap = await readLocalMap();
-  const current = localMap[matchId] ?? [];
+    const message = normalizeMessage({ ...data.message, status: 'sent' });
+    await persistLocalMessage(matchId, message);
+    return message;
+  } catch {
+    const fallbackMessage = normalizeMessage({
+      id: `local-${Date.now()}`,
+      senderPetId,
+      text,
+      createdAt: Date.now(),
+      status: 'pending',
+    });
 
-  await writeLocalMap({
-    ...localMap,
-    [matchId]: dedupeMessages([...current, message]),
-  });
-
-  return message;
+    await persistLocalMessage(matchId, fallbackMessage);
+    return fallbackMessage;
+  }
 };

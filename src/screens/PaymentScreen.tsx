@@ -1,198 +1,236 @@
 import { useEffect, useState } from 'react';
 import {
-  Image,
+  ActivityIndicator,
+  Alert,
   Modal,
   ScrollView,
   StatusBar,
   Text,
   TouchableOpacity,
   View,
-  Alert,
-  ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CommonActions, useNavigation } from '@react-navigation/native';
 import {
   activateVip,
-  getVipDaysLeft,
   getVipStatus,
   VIP_PACKAGES,
   VipPackage,
   VipStatus,
 } from '@/services/vipService';
 
-// ─── Package Cards ───────────────────────────────────────────────────────────
-
 const PACKAGES = [
   {
     id: 'spotlight_name' as VipPackage,
+    name: 'Nổi bật tên',
+    price: '29.000',
     badge: 'HOT',
-    badgeColor: '#FF3B30',
-    icon: 'medal',
-    iconColor: '#FFD700',
-    borderColor: '#FFD700',
+    badgeColor: '#FF9500',
+    gradientFrom: '#451a03',
+    gradientTo: '#78350f',
+    accentColor: '#fbbf24',
+    icon: 'medal-outline',
     features: [
       'Tên hiển thị đầu danh sách',
       'Viền vàng nổi bật trên Home',
-      'Hiển thị badge 🏆 trên card',
+      'Hiển thị badge trên card',
       'Ưu tiên xuất hiện trước',
     ],
   },
   {
     id: 'spotlight_profile' as VipPackage,
+    name: 'Profile nổi bật',
+    price: '49.000',
     badge: 'BEST VALUE',
-    badgeColor: '#FF9500',
-    icon: 'star-circle',
-    iconColor: '#FF9500',
-    borderColor: '#FF9500',
+    badgeColor: '#a855f7',
+    gradientFrom: '#2e1065',
+    gradientTo: '#4c1d95',
+    accentColor: '#c084fc',
+    icon: 'crown-outline',
     features: [
       'Tất cả tính năng gói Nổi bật tên',
       'Profile lên đầu tab Trò chuyện',
-      'Hình ảnh zoom lớn trên Home',
-      'Ghim profile ở danh sách ưu tiên',
+      'Ảnh lớn hơn trên Home',
+      'Ghim profile ưu tiên',
       'Thông báo khi có người mới thích',
     ],
   },
 ];
 
 const PAYMENT_METHODS = [
-  { id: 'vietqr', name: 'VietQR (QR Code)', icon: 'qr-code' },
-  { id: 'momo', name: 'Ví MoMo', icon: 'wallet' },
-  { id: 'zalo', name: 'Ví ZaloPay', icon: 'chatbubble' },
-  { id: 'card', name: 'Thẻ ngân hàng', icon: 'card' },
+  { id: 'vietqr', name: 'VietQR (QR Code)', icon: 'qr-code-outline', color: '#22c55e' },
+  { id: 'momo', name: 'Ví MoMo', icon: 'wallet-outline', color: '#ec4899' },
+  { id: 'zalo', name: 'Ví ZaloPay', icon: 'chatbubble-outline', color: '#0068ff' },
+  { id: 'card', name: 'Thẻ ngân hàng', icon: 'card-outline', color: '#f59e0b' },
 ];
-
-// ─── Success Modal ────────────────────────────────────────────────────────────
 
 const SuccessModal = ({
   visible,
   pkgName,
+  pkgId,
   daysLeft,
   onClose,
+  modalWidth,
 }: {
   visible: boolean;
   pkgName: string;
+  pkgId: VipPackage;
   daysLeft: number;
   onClose: () => void;
-}) => (
-  <Modal visible={visible} transparent animationType="fade">
-    <View className="flex-1 items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.85)' }}>
-      <View className="w-72 rounded-3xl overflow-hidden items-center p-8" style={{ backgroundColor: '#1a1a1a' }}>
-        {/* Animated checkmark */}
-        <View className="w-20 h-20 rounded-full items-center justify-center mb-5" style={{ backgroundColor: '#00C85320' }}>
-          <Ionicons name="checkmark-circle" size={56} color="#00C853" />
+  modalWidth: number;
+}) => {
+  const activePackage = PACKAGES.find((item) => item.id === pkgId) ?? PACKAGES[0];
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View className="flex-1 items-center justify-center px-4" style={{ backgroundColor: 'rgba(0,0,0,0.9)' }}>
+        <View className="overflow-hidden rounded-3xl" style={{ width: modalWidth }}>
+          <LinearGradient
+            colors={[activePackage.gradientFrom, activePackage.gradientTo]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            className="items-center px-7 py-8"
+          >
+            <View
+              className="mb-5 h-20 w-20 items-center justify-center rounded-full"
+              style={{ backgroundColor: `${activePackage.accentColor}20` }}
+            >
+              <Ionicons name="checkmark-circle" size={60} color={activePackage.accentColor} />
+            </View>
+
+            <Text className="text-center text-2xl font-bold text-white">Thanh toán thành công!</Text>
+            <Text className="mt-2 text-center text-sm text-white/75">Gói "{pkgName}" đã được kích hoạt</Text>
+
+            <View
+              className="mt-5 w-full rounded-2xl px-5 py-4"
+              style={{ backgroundColor: `${activePackage.accentColor}20`, borderWidth: 1, borderColor: `${activePackage.accentColor}50` }}
+            >
+              <View className="flex-row items-center justify-center">
+                <MaterialCommunityIcons name="diamond-stone" size={18} color={activePackage.accentColor} />
+                <Text className="ml-2 text-sm font-bold text-white">VIP đang hoạt động</Text>
+              </View>
+              <Text className="mt-1 text-center text-xs text-white/75">Còn {daysLeft} ngày</Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={onClose}
+              className="mt-6 w-full items-center rounded-2xl py-4"
+              style={{ backgroundColor: activePackage.accentColor }}
+            >
+              <Text className="text-base font-bold text-black">Khám phá ngay</Text>
+            </TouchableOpacity>
+          </LinearGradient>
         </View>
-
-        <Text className="text-white font-bold text-xl text-center mb-1">
-          🎉 Thanh toán thành công!
-        </Text>
-        <Text className="text-gray-400 text-sm text-center mb-1">
-          Gói "{pkgName}" đã được kích hoạt
-        </Text>
-
-        {/* VIP badge */}
-        <View className="mt-4 bg-yellow-400 rounded-2xl px-6 py-3 items-center">
-          <MaterialCommunityIcons name="diamond-stone" size={20} color="#7A5C00" />
-          <Text className="text-yellow-900 font-bold text-sm mt-1">VIP Đang hoạt động</Text>
-          <Text className="text-yellow-800 text-xs">Còn {daysLeft} ngày</Text>
-        </View>
-
-        {/* Features unlocked */}
-        <View className="mt-5 w-full rounded-xl p-4" style={{ backgroundColor: '#2c2c2e' }}>
-          <Text className="text-gray-400 text-xs mb-2">Bạn đã mở khóa:</Text>
-          <View className="flex-row items-center mb-1">
-            <Ionicons name="checkmark-circle" size={14} color="#FFD700" />
-            <Text className="text-gray-200 text-xs ml-2">Viền vàng nổi bật trên Home</Text>
-          </View>
-          <View className="flex-row items-center mb-1">
-            <Ionicons name="checkmark-circle" size={14} color="#FFD700" />
-            <Text className="text-gray-200 text-xs ml-2">Hiển thị đầu danh sách</Text>
-          </View>
-          <View className="flex-row items-center">
-            <Ionicons name="checkmark-circle" size={14} color="#FFD700" />
-            <Text className="text-gray-200 text-xs ml-2">Ưu tiên trong tab Trò chuyện</Text>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          onPress={onClose}
-          className="mt-6 w-full rounded-xl py-3.5 items-center"
-          style={{ backgroundColor: '#0084FF' }}
-        >
-          <Text className="text-white font-bold text-base">Khám phá ngay</Text>
-        </TouchableOpacity>
       </View>
-    </View>
-  </Modal>
-);
-
-// ─── QR Modal ───────────────────────────────────────────────────────────────
+    </Modal>
+  );
+};
 
 const QRModal = ({
   visible,
   pkgName,
   price,
+  accentColor,
   onConfirm,
   onClose,
   loading,
+  modalWidth,
+  qrSize,
+  safeBottom,
 }: {
   visible: boolean;
   pkgName: string;
   price: string;
+  accentColor: string;
   onConfirm: () => void;
   onClose: () => void;
   loading: boolean;
+  modalWidth: number;
+  qrSize: number;
+  safeBottom: number;
 }) => (
-  <Modal visible={visible} animationType="slide" transparent>
-    <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}>
-      <View className="rounded-t-3xl p-6 items-center" style={{ backgroundColor: '#1a1a1a', paddingBottom: 40 }}>
-        <View className="w-10 h-1 bg-gray-600 rounded-full mb-5" />
-        <Text className="text-white font-bold text-xl mb-1">Quét QR để thanh toán</Text>
-        <Text className="text-gray-500 text-sm mb-6 text-center">
-          Mở app ngân hàng hoặc ví MoMo/ZaloPay{'\n'}để quét mã bên dưới
-        </Text>
-
-        {/* Mock QR */}
-        <View className="w-56 h-56 rounded-2xl items-center justify-center mb-4" style={{ backgroundColor: 'white' }}>
-          <Ionicons name="qr-code" size={120} color="#1a1a1a" />
-          <Text className="text-xs text-gray-400 mt-2 text-center px-4">
-            VietQR — STK: 123456789{'\n'}PetDating Service
-          </Text>
-        </View>
-
-        {/* Amount */}
-        <View className="rounded-xl px-6 py-3 mb-6 flex-row items-center" style={{ backgroundColor: '#2c2c2e' }}>
-          <Text className="text-gray-400 text-sm">Số tiền thanh toán</Text>
-          <Text className="text-white font-bold text-lg ml-4">{price}đ</Text>
-        </View>
-
-        <TouchableOpacity
-          onPress={onConfirm}
-          disabled={loading}
-          className="w-full rounded-2xl py-4 items-center"
-          style={{ backgroundColor: loading ? '#555' : '#0084FF' }}
+  <Modal visible={visible} transparent animationType="slide">
+    <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.88)' }}>
+      <View className="rounded-t-[40px]" style={{ backgroundColor: '#0f0f0f', maxHeight: '92%' }}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ alignItems: 'center', paddingHorizontal: 24, paddingTop: 24, paddingBottom: safeBottom + 20 }}
         >
-          {loading ? (
-            <ActivityIndicator size="small" color="white" />
-          ) : (
-            <Text className="text-white font-bold text-base">Tôi đã thanh toán xong</Text>
-          )}
-        </TouchableOpacity>
+          <View className="mb-5 h-1 w-10 rounded-full bg-gray-600" />
 
-        <TouchableOpacity onPress={onClose} className="mt-4 py-3">
-          <Text className="text-gray-500 text-sm">Huỷ thanh toán</Text>
-        </TouchableOpacity>
+          <View className="mb-1 flex-row items-center">
+            <View
+              className="mr-3 h-10 w-10 items-center justify-center rounded-2xl"
+              style={{ backgroundColor: `${accentColor}20` }}
+            >
+              <Ionicons name="qr-code-outline" size={22} color={accentColor} />
+            </View>
+            <Text className="text-xl font-bold text-white">Quét QR thanh toán</Text>
+          </View>
+
+          <Text className="mb-6 text-center text-sm text-gray-500">
+            Mở app ngân hàng hoặc ví MoMo/ZaloPay{'\n'}để quét mã cho gói {pkgName}
+          </Text>
+
+          <View
+            className="mb-5 items-center justify-center rounded-3xl bg-white"
+            style={{ width: qrSize, height: qrSize }}
+          >
+            <Ionicons name="qr-code" size={Math.floor(qrSize * 0.58)} color="#111827" />
+            <Text className="mt-3 px-4 text-center text-xs text-gray-400">
+              VietQR{'\n'}STK: 1903 0000 000 123{'\n'}PetDating Service
+            </Text>
+          </View>
+
+          <View
+            className="mb-5 flex-row items-center justify-between rounded-2xl p-4"
+            style={{ backgroundColor: '#1a1a1a', width: modalWidth }}
+          >
+            <View className="flex-1 flex-row items-center pr-4">
+              <View
+                className="mr-2 h-8 w-8 items-center justify-center rounded-lg"
+                style={{ backgroundColor: `${accentColor}20` }}
+              >
+                <Ionicons name="wallet-outline" size={16} color={accentColor} />
+              </View>
+              <Text className="text-sm text-gray-400">Số tiền thanh toán</Text>
+            </View>
+            <Text className="text-lg font-extrabold" style={{ color: accentColor }}>
+              {price}đ
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            onPress={onConfirm}
+            disabled={loading}
+            className="items-center rounded-2xl py-4"
+            style={{ backgroundColor: loading ? '#333333' : accentColor, width: modalWidth }}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <Text className="text-base font-bold text-black">Tôi đã thanh toán xong</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={onClose} className="mt-4 py-3">
+            <Text className="text-sm text-gray-500">Huỷ thanh toán</Text>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
     </View>
   </Modal>
 );
 
-// ─── PaymentScreen ───────────────────────────────────────────────────────────
-
 const PaymentScreen = () => {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const modalWidth = Math.min(width - 32, 360);
+  const qrSize = Math.max(210, Math.min(width - 88, height < 760 ? 220 : 260));
   const [selectedPkg, setSelectedPkg] = useState<VipPackage | null>(null);
   const [selectedMethod, setSelectedMethod] = useState('vietqr');
   const [showQR, setShowQR] = useState(false);
@@ -201,47 +239,47 @@ const PaymentScreen = () => {
   const [currentStatus, setCurrentStatus] = useState<VipStatus | null>(null);
   const [daysLeft, setDaysLeft] = useState(0);
 
-  // Load current VIP status on mount
   useEffect(() => {
     const load = async () => {
       try {
         const status = await getVipStatus();
         if (status) {
           setCurrentStatus(status);
-          setDaysLeft(Math.ceil((status.expiresAt - Date.now()) / 86400000));
+          setDaysLeft(Math.max(0, Math.ceil((status.expiresAt - Date.now()) / 86400000)));
           setSelectedPkg(status.package);
         }
       } catch {
         setCurrentStatus(null);
       }
     };
+
     load();
   }, []);
 
-  const pkg = PACKAGES.find((p) => p.id === selectedPkg);
-  const pkgInfo = pkg ? VIP_PACKAGES[pkg.id] : null;
+  const selectedPkgData = PACKAGES.find((item) => item.id === selectedPkg) ?? null;
 
   const handlePurchase = () => {
     if (!selectedPkg) {
       Alert.alert('Chọn gói', 'Vui lòng chọn gói dịch vụ trước.');
       return;
     }
+
     setShowQR(true);
   };
 
   const handleConfirmPayment = async () => {
     if (!selectedPkg) return;
+
     setProcessing(true);
-
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await new Promise((resolve) => setTimeout(resolve, 1200));
       const status = await activateVip(selectedPkg);
-      const left = Math.ceil((status.expiresAt - Date.now()) / 86400000);
+      const left = Math.max(0, Math.ceil((status.expiresAt - Date.now()) / 86400000));
 
-      setShowQR(false);
-      setShowSuccess(true);
       setCurrentStatus(status);
       setDaysLeft(left);
+      setShowQR(false);
+      setShowSuccess(true);
     } catch (error: any) {
       Alert.alert('Thanh toán chưa hoàn tất', error?.message || 'Không thể kích hoạt gói VIP lúc này.');
     } finally {
@@ -260,185 +298,263 @@ const PaymentScreen = () => {
   };
 
   return (
-    <SafeAreaView className="flex-1" style={{ backgroundColor: '#0a0a0a' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#0a0a0a" />
+    <SafeAreaView className="flex-1" style={{ backgroundColor: '#09090b' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#09090b" />
 
-      {/* Header */}
       <View className="flex-row items-center px-4 py-4">
-        <TouchableOpacity onPress={() => navigation.goBack()} className="p-2 -ml-2">
-          <Ionicons name="chevron-back" size={28} color="white" />
+        <TouchableOpacity onPress={() => navigation.goBack()} className="-ml-2 p-2">
+          <Ionicons name="chevron-back" size={28} color="#ffffff" />
         </TouchableOpacity>
-        <Text className="flex-1 text-white text-xl font-bold text-center pr-8">Nâng cấp tài khoản</Text>
+        <Text className="flex-1 pr-8 text-center text-xl font-bold text-white">Nâng cấp tài khoản</Text>
       </View>
 
-      {/* VIP Active Banner */}
-      {currentStatus && currentStatus.isActive && (
-        <View className="mx-4 mb-4 rounded-xl p-4 flex-row items-center" style={{ backgroundColor: '#2c2c2e', borderWidth: 1, borderColor: '#FFD700' }}>
-          <MaterialCommunityIcons name="diamond-stone" size={22} color="#FFD700" />
-          <View className="ml-3 flex-1">
-            <Text className="text-yellow-400 font-bold text-sm">VIP Đang hoạt động</Text>
-            <Text className="text-gray-400 text-xs mt-0.5">
-              Còn {daysLeft} ngày · {VIP_PACKAGES[currentStatus.package].name}
-            </Text>
-          </View>
-          <TouchableOpacity
-            onPress={() => {
-              Alert.alert('Gia hạn', 'Tính năng gia hạn sẽ sớm ra mắt!');
-            }}
-            className="bg-yellow-400 rounded-full px-3 py-1.5"
+      {currentStatus?.isActive && (
+        <View
+          className="mx-4 mb-4 overflow-hidden rounded-2xl"
+          style={{ borderWidth: 1, borderColor: selectedPkgData?.accentColor || '#fbbf24' }}
+        >
+          <LinearGradient
+            colors={[selectedPkgData?.gradientFrom || '#451a03', selectedPkgData?.gradientTo || '#78350f']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            className="flex-row items-center px-5 py-4"
           >
-            <Text className="text-yellow-900 font-bold text-xs">Gia hạn</Text>
-          </TouchableOpacity>
+            <View
+              className="mr-4 h-12 w-12 items-center justify-center rounded-2xl"
+              style={{ backgroundColor: `${selectedPkgData?.accentColor || '#fbbf24'}20` }}
+            >
+              <MaterialCommunityIcons
+                name="diamond-stone"
+                size={24}
+                color={selectedPkgData?.accentColor || '#fbbf24'}
+              />
+            </View>
+
+            <View className="flex-1">
+              <Text className="text-base font-bold text-white">VIP đang hoạt động</Text>
+              <Text className="mt-0.5 text-sm text-white/65">
+                Còn {daysLeft} ngày · {VIP_PACKAGES[currentStatus.package].name}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => Alert.alert('Gia hạn', 'Tính năng gia hạn sẽ sớm ra mắt!')}
+              className="rounded-full px-4 py-2"
+              style={{
+                backgroundColor: `${selectedPkgData?.accentColor || '#fbbf24'}30`,
+                borderWidth: 1,
+                borderColor: `${selectedPkgData?.accentColor || '#fbbf24'}50`,
+              }}
+            >
+              <Text className="text-sm font-bold text-white">Gia hạn</Text>
+            </TouchableOpacity>
+          </LinearGradient>
         </View>
       )}
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}>
-        {/* Chọn gói */}
-        <Text className="text-white text-base font-semibold mb-4">Chọn gói dịch vụ</Text>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 28 }}
+      >
+        <View className="mb-4">
+          <Text className="text-xl font-bold text-white">Chọn gói dịch vụ</Text>
+          <Text className="mt-1 text-sm text-gray-500">Chạm để chọn gói phù hợp với bạn</Text>
+        </View>
 
-        {PACKAGES.map((p) => {
-          const isSelected = selectedPkg === p.id;
-          const info = VIP_PACKAGES[p.id];
+        {PACKAGES.map((item) => {
+          const isSelected = selectedPkg === item.id;
+
           return (
             <TouchableOpacity
-              key={p.id}
-              onPress={() => setSelectedPkg(isSelected ? null : p.id)}
-              className="mb-4 rounded-2xl overflow-hidden border-2"
+              key={item.id}
+              activeOpacity={0.85}
+              onPress={() => setSelectedPkg(isSelected ? null : item.id)}
+              className="mb-4 overflow-hidden rounded-3xl"
               style={{
-                borderColor: isSelected ? p.borderColor : '#2c2c2e',
-                backgroundColor: '#1a1a1a',
+                borderWidth: isSelected ? 2 : 1,
+                borderColor: isSelected ? item.badgeColor : '#27272a',
               }}
             >
-              {/* Badge */}
-              <View className="absolute top-3 right-3 px-2 py-0.5 rounded-full" style={{ backgroundColor: p.badgeColor }}>
-                <Text className="text-white text-[10px] font-bold">{p.badge}</Text>
-              </View>
-
-              <View className="p-5">
-                <View className="flex-row items-center mb-3">
-                  <View
-                    className="w-12 h-12 rounded-xl items-center justify-center mr-4"
-                    style={{ backgroundColor: p.iconColor + '20' }}
-                  >
-                    <MaterialCommunityIcons name={p.icon as any} size={28} color={p.iconColor} />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-white font-bold text-lg">{info.name}</Text>
-                    <View className="flex-row items-baseline mt-1">
-                      <Text className="text-white font-extrabold text-2xl">{info.price}</Text>
-                      <Text className="text-gray-500 text-sm ml-1">/tuần</Text>
+              <LinearGradient
+                colors={[item.gradientFrom, item.gradientTo]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                className="px-5 pb-4 pt-5"
+              >
+                <View className="mb-3 flex-row items-center justify-between">
+                  <View className="mr-4 flex-1 flex-row items-center">
+                    <View
+                      className="mr-3 h-10 w-10 items-center justify-center rounded-2xl"
+                      style={{ backgroundColor: `${item.accentColor}30` }}
+                    >
+                      <MaterialCommunityIcons name={item.icon as any} size={22} color={item.accentColor} />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-lg font-bold text-white">{item.name}</Text>
+                      <Text className="mt-0.5 text-xs text-white/60">Gói VIP cho hồ sơ thú cưng</Text>
                     </View>
                   </View>
-                  {/* Radio */}
+
                   <View
-                    className="w-6 h-6 rounded-full border-2 items-center justify-center"
-                    style={{ borderColor: isSelected ? p.borderColor : '#444' }}
+                    className="rounded-full px-3 py-1"
+                    style={{ backgroundColor: `${item.badgeColor}30`, borderWidth: 1, borderColor: `${item.badgeColor}55` }}
                   >
-                    {isSelected && (
-                      <View className="w-3 h-3 rounded-full" style={{ backgroundColor: p.borderColor }} />
-                    )}
+                    <Text className="text-[10px] font-black" style={{ color: item.accentColor }}>
+                      {item.badge}
+                    </Text>
                   </View>
                 </View>
 
-                {/* Features */}
-                {isSelected && (
-                  <View className="mt-2 pt-3 border-t border-white/10">
-                    {p.features.map((f, i) => (
-                      <View key={i} className="flex-row items-center mb-2">
-                        <Ionicons name="checkmark-circle" size={16} color={p.iconColor} />
-                        <Text className="text-gray-300 text-sm ml-2">{f}</Text>
-                      </View>
-                    ))}
+                <View className="flex-row items-baseline">
+                  <Text className="text-3xl font-black text-white">{item.price}</Text>
+                  <Text className="ml-1 text-sm text-white/45">đ / tuần</Text>
+                </View>
+              </LinearGradient>
+
+              <View className="bg-[#18181b] px-5 py-4">
+                {item.features.map((feature) => (
+                  <View key={feature} className="mb-3 flex-row items-center">
+                    <View
+                      className="mr-3 h-6 w-6 items-center justify-center rounded-full"
+                      style={{ backgroundColor: `${item.accentColor}20` }}
+                    >
+                      <Ionicons name="checkmark" size={13} color={item.accentColor} />
+                    </View>
+                    <Text className="flex-1 text-sm text-gray-300">{feature}</Text>
                   </View>
-                )}
+                ))}
+
+                <View className="mt-1 flex-row items-center justify-end">
+                  <View
+                    className="h-6 w-6 items-center justify-center rounded-full border-2"
+                    style={{ borderColor: isSelected ? item.accentColor : '#52525b' }}
+                  >
+                    {isSelected ? (
+                      <View className="h-3 w-3 rounded-full" style={{ backgroundColor: item.accentColor }} />
+                    ) : null}
+                  </View>
+                </View>
               </View>
             </TouchableOpacity>
           );
         })}
 
-        {/* Thanh toán */}
-        <Text className="text-white text-base font-semibold mb-4 mt-2">Phương thức thanh toán</Text>
-        <View className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#1a1a1a' }}>
-          {PAYMENT_METHODS.map((m, i) => (
-            <TouchableOpacity
-              key={m.id}
-              onPress={() => setSelectedMethod(m.id)}
-              className="flex-row items-center px-5 py-4"
-              style={{ borderBottomWidth: i < PAYMENT_METHODS.length - 1 ? 1 : 0, borderBottomColor: '#2c2c2e' }}
-            >
-              <View className="w-10 h-10 rounded-xl bg-[#2c2c2e] items-center justify-center mr-4">
-                <Ionicons name={m.icon as any} size={20} color="#8e8e93" />
-              </View>
-              <Text className="flex-1 text-white font-medium">{m.name}</Text>
-              <View
-                className="w-5 h-5 rounded-full border-2 items-center justify-center"
-                style={{ borderColor: selectedMethod === m.id ? '#0084FF' : '#444' }}
-              >
-                {selectedMethod === m.id && (
-                  <View className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#0084FF' }} />
-                )}
-              </View>
-            </TouchableOpacity>
-          ))}
+        <View className="mt-2 mb-4">
+          <Text className="mb-3 text-xl font-bold text-white">Phương thức thanh toán</Text>
+          <View className="overflow-hidden rounded-2xl" style={{ backgroundColor: '#18181b' }}>
+            {PAYMENT_METHODS.map((item, index) => {
+              const isSelected = selectedMethod === item.id;
+
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  activeOpacity={0.75}
+                  onPress={() => setSelectedMethod(item.id)}
+                  className="flex-row items-center px-5 py-4"
+                  style={{
+                    borderBottomWidth: index < PAYMENT_METHODS.length - 1 ? 1 : 0,
+                    borderBottomColor: '#27272a',
+                    backgroundColor: isSelected ? `${item.color}10` : 'transparent',
+                  }}
+                >
+                  <View
+                    className="mr-4 h-11 w-11 items-center justify-center rounded-xl"
+                    style={{ backgroundColor: `${item.color}20` }}
+                  >
+                    <Ionicons name={item.icon as any} size={22} color={item.color} />
+                  </View>
+                  <Text className="flex-1 text-base font-medium text-white">{item.name}</Text>
+                  <View
+                    className="h-6 w-6 items-center justify-center rounded-full border-2"
+                    style={{ borderColor: isSelected ? item.color : '#52525b', backgroundColor: isSelected ? item.color : 'transparent' }}
+                  >
+                    {isSelected ? <Ionicons name="checkmark" size={13} color="#ffffff" /> : null}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
 
-        {/* Summary */}
-        {pkgInfo && (
-          <View className="mt-4 rounded-2xl p-5" style={{ backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#2c2c2e' }}>
-            <View className="flex-row justify-between items-center">
-              <Text className="text-gray-400 text-sm">Gói dịch vụ</Text>
-              <Text className="text-white font-medium">{pkgInfo.name}</Text>
-            </View>
-            <View className="flex-row justify-between items-center mt-2 pt-2 border-t border-white/10">
-              <Text className="text-white font-semibold text-base">Tổng cộng</Text>
-              <Text className="text-white font-extrabold text-xl">{pkgInfo.price}đ</Text>
+        {selectedPkgData ? (
+          <View className="mb-4 rounded-2xl p-4" style={{ backgroundColor: '#18181b' }}>
+            <View className="flex-row items-center justify-between">
+              <View>
+                <Text className="text-sm text-gray-400">Gói đã chọn</Text>
+                <Text className="mt-0.5 text-base font-bold text-white">{selectedPkgData.name}</Text>
+              </View>
+              <View className="items-end">
+                <Text className="text-sm text-gray-400">Tổng thanh toán</Text>
+                <Text className="mt-0.5 text-2xl font-black" style={{ color: selectedPkgData.accentColor }}>
+                  {selectedPkgData.price}đ
+                </Text>
+              </View>
             </View>
           </View>
-        )}
+        ) : null}
 
-        {/* Button */}
         <TouchableOpacity
           onPress={handlePurchase}
           disabled={!selectedPkg}
-          className="mt-5 rounded-2xl overflow-hidden"
+          activeOpacity={0.85}
+          className="mb-4 overflow-hidden rounded-2xl"
+          style={{ opacity: selectedPkg ? 1 : 0.45 }}
         >
           <LinearGradient
-            colors={selectedPkg ? ['#FF9500', '#FF3B30'] : ['#3a3a3a', '#2c2c2e']}
+            colors={
+              selectedPkgData
+                ? [selectedPkgData.gradientFrom, selectedPkgData.gradientTo]
+                : ['#27272a', '#18181b']
+            }
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            className="py-4 rounded-2xl items-center"
+            end={{ x: 1, y: 1 }}
+            className="items-center rounded-2xl py-4"
           >
-            <Text className="text-white font-bold text-base">
+            <Text className="text-lg font-extrabold text-white">
               {selectedPkg ? 'Thanh toán ngay' : 'Chọn gói để tiếp tục'}
             </Text>
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Note */}
-        <View className="mt-6 flex-row items-start">
-          <Ionicons name="shield-checkmark" size={16} color="#4CAF50" />
-          <Text className="text-gray-500 text-xs leading-4 ml-2 flex-1">
-            Thanh toán được bảo mật bởi PetDating. Dịch vụ tự động gia hạn sau 7 ngày. Hủy bất cứ lúc nào.
-          </Text>
+        <View className="mt-1 flex-row flex-wrap justify-center">
+          {[
+            { icon: 'shield-checkmark', text: 'Thanh toán bảo mật' },
+            { icon: 'time-outline', text: 'Kích hoạt nhanh' },
+            { icon: 'refresh', text: 'Không tự gia hạn' },
+            { icon: 'close-circle-outline', text: 'Huỷ bất cứ lúc nào' },
+          ].map((item) => (
+            <View
+              key={item.text}
+              className="mb-2 mr-2 flex-row items-center rounded-full px-3 py-2"
+              style={{ backgroundColor: '#18181b' }}
+            >
+              <Ionicons name={item.icon as any} size={14} color="#4ade80" />
+              <Text className="ml-1.5 text-xs text-gray-400">{item.text}</Text>
+            </View>
+          ))}
         </View>
       </ScrollView>
 
-      {/* QR Modal */}
       <QRModal
         visible={showQR}
-        pkgName={pkgInfo?.name || ''}
-        price={pkgInfo?.price || ''}
+        pkgName={selectedPkgData?.name || ''}
+        price={selectedPkgData?.price || ''}
+        accentColor={selectedPkgData?.accentColor || '#fbbf24'}
         onConfirm={handleConfirmPayment}
         onClose={() => setShowQR(false)}
         loading={processing}
+        modalWidth={modalWidth}
+        qrSize={qrSize}
+        safeBottom={insets.bottom}
       />
 
-      {/* Success Modal */}
       <SuccessModal
         visible={showSuccess}
-        pkgName={pkgInfo?.name || ''}
+        pkgName={selectedPkgData?.name || ''}
+        pkgId={selectedPkg || 'spotlight_name'}
         daysLeft={daysLeft}
         onClose={handleSuccessClose}
+        modalWidth={modalWidth}
       />
     </SafeAreaView>
   );

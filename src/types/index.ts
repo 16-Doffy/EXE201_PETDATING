@@ -13,6 +13,7 @@ export type RootStackParamList = {
   LegalTerm: undefined;
   AboutApp: undefined;
   FAQ: undefined;
+  TransactionHistory: undefined;
   MainTabs: undefined;
   PetDetail: { petId: string };
   Chat: { matchId: string; otherPetName: string; otherPetId?: string };
@@ -64,4 +65,5 @@ export type ChatMessageModel = {
   type?: 'text' | 'image' | 'sticker';
   image?: string;
   seen?: boolean;
+  status?: 'sent' | 'pending' | 'failed';
 };

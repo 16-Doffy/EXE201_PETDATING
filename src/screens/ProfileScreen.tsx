@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Alert, Image, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -31,6 +31,9 @@ type MenuItem = {
 };
 
 const ProfileScreen = ({ navigation }: Props) => {
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const compactActions = width < 390;
   const [pet, setPet] = useState<PetModel | null>(null);
   const [stats, setStats] = useState({ matches: 0, likes: 0, pets: 1 });
   const [vipActive, setVipActive] = useState(false);
@@ -162,7 +165,11 @@ const ProfileScreen = ({ navigation }: Props) => {
     <SafeAreaView className="flex-1 bg-[#fff8fb]">
       <LinearGradient colors={['#fff9fc', '#fff3f7', '#ffffff']} className="absolute inset-0" />
 
-      <ScrollView showsVerticalScrollIndicator={false} className="px-5">
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        className="px-5"
+        contentContainerStyle={{ paddingBottom: insets.bottom + 110 }}
+      >
         <View className="flex-row items-center justify-between pt-5 pb-4">
           <View>
             <Text className="text-[32px] font-black text-slate-900">Cá nhân</Text>
@@ -302,26 +309,33 @@ const ProfileScreen = ({ navigation }: Props) => {
           </LinearGradient>
         </TouchableOpacity>
 
-        <View className="mt-5 rounded-[28px] bg-white px-5 py-4 flex-row items-center">
-          <View className="w-12 h-12 rounded-2xl bg-rose-50 items-center justify-center">
-            <AppIcon name="image" size={22} color="#ff4f96" />
+        <View className="mt-5 rounded-[28px] bg-white px-5 py-4">
+          <View className={`${compactActions ? '' : 'flex-row items-center'}`}>
+            <View className="flex-row items-center flex-1">
+              <View className="w-12 h-12 rounded-2xl bg-rose-50 items-center justify-center">
+                <AppIcon name="image" size={22} color="#ff4f96" />
+              </View>
+              <View className="ml-4 flex-1">
+                <Text className="text-slate-800 font-bold text-base">Ảnh hồ sơ</Text>
+                <Text className="text-slate-500 text-xs mt-1">Đổi ảnh từ thư viện hoặc chụp mới trực tiếp</Text>
+              </View>
+            </View>
+
+            <View className={`${compactActions ? 'mt-4' : 'ml-4'} flex-row`}>
+              <TouchableOpacity
+                onPress={pickImage}
+                className={`rounded-full bg-slate-100 px-4 py-2 ${compactActions ? 'flex-1 mr-2 items-center' : 'mr-2'}`}
+              >
+                <Text className="text-slate-700 text-xs font-bold">Thư viện</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={captureImage}
+                className={`rounded-full bg-slate-900 px-4 py-2 ${compactActions ? 'flex-1 items-center' : ''}`}
+              >
+                <Text className="text-white text-xs font-bold">Chụp</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <View className="ml-4 flex-1">
-            <Text className="text-slate-800 font-bold text-base">Ảnh hồ sơ</Text>
-            <Text className="text-slate-500 text-xs mt-1">Đổi ảnh từ thư viện hoặc chụp mới trực tiếp</Text>
-          </View>
-          <TouchableOpacity
-            onPress={pickImage}
-            className="rounded-full bg-slate-100 px-4 py-2 mr-2"
-          >
-            <Text className="text-slate-700 text-xs font-bold">Thư viện</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={captureImage}
-            className="rounded-full bg-slate-900 px-4 py-2"
-          >
-            <Text className="text-white text-xs font-bold">Chụp</Text>
-          </TouchableOpacity>
         </View>
 
         <View className="mt-6 mb-10 rounded-[30px] bg-white px-3 py-3">

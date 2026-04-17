@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { PetModel, RootStackParamList } from '@/types';
@@ -10,8 +10,12 @@ import { getRandomImage } from '@/constants/images';
 type Props = NativeStackScreenProps<RootStackParamList, 'MyProfile'>;
 
 const MyProfileScreen = ({ navigation }: Props) => {
+  const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
   const [pet, setPet] = useState<PetModel | null>(null);
   const [loading, setLoading] = useState(true);
+  const cardHeight = Math.max(220, Math.min(height * 0.34, 280));
+  const placeholderHeight = Math.max(280, Math.min(height * 0.42, 340));
 
   useEffect(() => {
     const load = async () => {
@@ -29,7 +33,7 @@ const MyProfileScreen = ({ navigation }: Props) => {
 
   return (
     <SafeAreaView className="flex-1 bg-figmaCream">
-      <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
         <View className="w-full max-w-[420px] self-center px-4 pt-2">
           <View className="flex-row items-center mb-5">
             <TouchableOpacity onPress={() => navigation.goBack()} className="mr-3">
@@ -40,7 +44,7 @@ const MyProfileScreen = ({ navigation }: Props) => {
 
           <View className="bg-white rounded-3xl p-4 border border-[#EEF2FF]">
             {loading ? (
-              <View className="h-[340px] items-center justify-center">
+              <View className="items-center justify-center" style={{ height: placeholderHeight }}>
                 <ActivityIndicator size="large" color="#2C6BED" />
                 <Text className="mt-3 text-slate-500">Đang tải hồ sơ thú cưng...</Text>
               </View>
@@ -48,7 +52,8 @@ const MyProfileScreen = ({ navigation }: Props) => {
               <>
                 <Image
                   source={{ uri: pet.image || getRandomImage(pet.type || 'Dog', pet.id) }}
-                  className="w-full h-[280px] rounded-2xl"
+                  className="w-full rounded-2xl"
+                  style={{ height: cardHeight }}
                   resizeMode="cover"
                 />
                 <Text className="text-[30px] font-bold text-slate-900 mt-4">{pet.name}</Text>
@@ -64,7 +69,7 @@ const MyProfileScreen = ({ navigation }: Props) => {
                 </TouchableOpacity>
               </>
             ) : (
-              <View className="h-[340px] items-center justify-center px-6">
+              <View className="items-center justify-center px-6" style={{ height: placeholderHeight }}>
                 <Ionicons name="paw-outline" size={52} color="#94A3B8" />
                 <Text className="mt-4 text-center text-xl font-bold text-slate-800">
                   Chưa có hồ sơ thú cưng

@@ -4,7 +4,10 @@ const path = require('path');
 const appConfig = require('./app.json');
 
 const port = Number(process.env.PORT || 8787);
-const apkPath = path.join(__dirname, 'Bossitive-release.apk');
+const apkPath = process.env.APK_PATH
+  ? path.resolve(__dirname, process.env.APK_PATH)
+  : path.join(__dirname, 'Bossitive-release.apk');
+const apkBaseName = process.env.APK_NAME || path.basename(apkPath, path.extname(apkPath)) || 'Bossitive-build';
 const appVersion = appConfig.expo?.version || '1.0.0';
 const iconPath = path.join(
   __dirname,
@@ -37,8 +40,8 @@ function getDownloadMeta(stats) {
   const stamp = getBuildStamp(stats.mtime);
   return {
     buildLabel: stamp,
-    downloadPath: `/download/Bossitive-release-${stamp}.apk`,
-    filename: `Bossitive-release-${stamp}.apk`,
+    downloadPath: `/download/${apkBaseName}-${stamp}.apk`,
+    filename: `${apkBaseName}-${stamp}.apk`,
   };
 }
 
@@ -332,8 +335,9 @@ const server = http.createServer((req, res) => {
     }
 
     const downloadMeta = getDownloadMeta(stats);
-    const isDownloadPath =
+  const isDownloadPath =
       pathname === '/download' ||
+      pathname === `/${apkBaseName}.apk` ||
       pathname === '/Bossitive-release.apk' ||
       pathname === downloadMeta.downloadPath;
 

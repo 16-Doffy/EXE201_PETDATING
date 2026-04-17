@@ -7,10 +7,12 @@ import {
   TouchableOpacity,
   View,
   SafeAreaView,
+  useWindowDimensions,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { CommonActions } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createPetProfile } from '@/services/petService';
 import { getRandomImage } from '@/constants/images';
 import PrimaryButton from '@/components/ui/PrimaryButton';
@@ -20,6 +22,8 @@ import AppIcon from '@/components/ui/AppIcon';
 const personalityOptions = ['Thân thiện', 'Nghịch ngợm', 'Hiền lành', 'Lanh lợi', 'Dễ gần'];
 
 const CreatePetProfileScreen = ({ navigation }: any) => {
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [breed, setBreed] = useState('');
@@ -33,6 +37,9 @@ const CreatePetProfileScreen = ({ navigation }: any) => {
   const [personality, setPersonality] = useState<string[]>([]);
   const [weight, setWeight] = useState('');
   const [tagsInput, setTagsInput] = useState('');
+  const compactLayout = width < 390 || height < 760;
+  const stackedFormLayout = width < 360;
+  const imageHeight = Math.max(compactLayout ? 208 : 228, Math.min(height * 0.28, 240));
 
   const togglePersonality = (value: string) => {
     setPersonality((current) =>
@@ -147,7 +154,11 @@ const CreatePetProfileScreen = ({ navigation }: any) => {
   return (
     <SafeAreaView className="flex-1 bg-white">
       <LinearGradient colors={['#E0EAFC', '#FFFFFF']} className="absolute left-0 right-0 top-0 bottom-0" />
-      <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        className="flex-1 px-6"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
+      >
         <View className="py-8">
           <Text className="text-3xl font-bold text-textMain mb-2">Tạo hồ sơ thú cưng</Text>
           <Text className="text-textSub font-medium">
@@ -172,6 +183,7 @@ const CreatePetProfileScreen = ({ navigation }: any) => {
           <TouchableOpacity
             onPress={pickImage}
             className="w-full h-60 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 items-center justify-center overflow-hidden"
+            style={{ height: imageHeight }}
           >
             {image ? (
               <Image source={{ uri: image }} className="w-full h-full" resizeMode="cover" />
@@ -188,31 +200,35 @@ const CreatePetProfileScreen = ({ navigation }: any) => {
             )}
           </TouchableOpacity>
 
-          <View className="flex-row flex-wrap mt-4">
+          <View className="mt-4 flex-row flex-wrap justify-between">
             <TouchableOpacity
               onPress={pickImage}
-              className="flex-1 min-w-[46%] bg-primary rounded-2xl py-3 items-center mr-2 mb-2 flex-row justify-center"
+              className="bg-primary rounded-2xl py-3 items-center mb-2 flex-row justify-center"
+              style={{ width: compactLayout ? '100%' : '48%' }}
             >
               <AppIcon name="gallery" size={18} color="#fff" />
               <Text className="text-white font-bold ml-2">Thư viện</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={captureImage}
-              className="flex-1 min-w-[46%] bg-slate-900 rounded-2xl py-3 items-center ml-2 mb-2 flex-row justify-center"
+              className="bg-slate-900 rounded-2xl py-3 items-center mb-2 flex-row justify-center"
+              style={{ width: compactLayout ? '100%' : '48%' }}
             >
               <AppIcon name="camera" size={18} color="#fff" />
               <Text className="text-white font-bold ml-2">Chụp ảnh</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setImage(getRandomImage(type, `${Date.now()}`))}
-              className="flex-1 min-w-[46%] bg-slate-100 rounded-2xl py-3 items-center mr-2 flex-row justify-center"
+              className="bg-slate-100 rounded-2xl py-3 items-center mb-2 flex-row justify-center"
+              style={{ width: compactLayout ? '100%' : '48%' }}
             >
               <AppIcon name="sparkle" size={18} color="#475569" />
               <Text className="text-textMain font-bold ml-2">Ảnh mẫu</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setImage('')}
-              className="flex-1 min-w-[46%] bg-rose-50 rounded-2xl py-3 items-center ml-2 flex-row justify-center"
+              className="bg-rose-50 rounded-2xl py-3 items-center flex-row justify-center"
+              style={{ width: compactLayout ? '100%' : '48%' }}
             >
               <AppIcon name="trash" size={18} color="#e11d48" />
               <Text className="text-rose-600 font-bold ml-2">Xóa ảnh</Text>
@@ -253,37 +269,37 @@ const CreatePetProfileScreen = ({ navigation }: any) => {
 
           <FigmaInput label="Tên thú cưng" placeholder="Ví dụ: Coco" value={name} onChangeText={setName} />
 
-          <View className="flex-row">
+          <View className={stackedFormLayout ? '' : 'flex-row'}>
             <FigmaInput
               label="Tuổi"
               placeholder="Ví dụ: 2 tuổi"
               value={age}
               onChangeText={setAge}
-              containerClassName="flex-1 mr-2"
+              containerClassName={stackedFormLayout ? '' : 'flex-1 mr-2'}
             />
             <FigmaInput
               label="Giống"
               placeholder="Ví dụ: Poodle"
               value={breed}
               onChangeText={setBreed}
-              containerClassName="flex-1 ml-2"
+              containerClassName={stackedFormLayout ? '' : 'flex-1 ml-2'}
             />
           </View>
 
-          <View className="flex-row">
+          <View className={stackedFormLayout ? '' : 'flex-row'}>
             <FigmaInput
               label="Cân nặng"
               placeholder="Ví dụ: 3.2 kg"
               value={weight}
               onChangeText={setWeight}
-              containerClassName="flex-1 mr-2"
+              containerClassName={stackedFormLayout ? '' : 'flex-1 mr-2'}
             />
             <FigmaInput
               label="Khu vực"
               placeholder="Ví dụ: Quận 7, TP.HCM"
               value={location}
               onChangeText={setLocation}
-              containerClassName="flex-1 ml-2"
+              containerClassName={stackedFormLayout ? '' : 'flex-1 ml-2'}
             />
           </View>
 
@@ -357,7 +373,7 @@ const CreatePetProfileScreen = ({ navigation }: any) => {
           title={loading ? 'ĐANG LƯU...' : 'TẠO HỒ SƠ'}
           onPress={onSave}
           disabled={loading}
-          className="mb-12 shadow-lg shadow-primary/30"
+          className="shadow-lg shadow-primary/30"
         />
       </ScrollView>
     </SafeAreaView>

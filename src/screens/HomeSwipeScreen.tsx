@@ -3,25 +3,22 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  Dimensions,
   Image,
   Modal,
-  PanResponder,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { getExplorePets, getPetByOwnerId, likePet } from '@/services/petService';
 import { PetModel } from '@/types';
 import { getRandomImage } from '@/constants/images';
 import { useAuth } from '@/hooks/useAuth';
 import AppIcon from '@/components/ui/AppIcon';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const SWIPE_THRESHOLD = 120;
 
 const resolvePetType = (pet?: PetModel | null): 'Dog' | 'Cat' => {
   if (pet?.type === 'Dog' || pet?.type === 'Cat') return pet.type;
@@ -50,6 +47,7 @@ const ActionButton = ({
   onPress,
   disabled,
   accent,
+  compact,
 }: {
   label: string;
   icon: 'refresh' | 'close' | 'heart' | 'sparkle';
@@ -57,6 +55,7 @@ const ActionButton = ({
   onPress: () => void;
   disabled?: boolean;
   accent?: boolean;
+  compact?: boolean;
 }) => (
   <TouchableOpacity
     disabled={disabled}
@@ -64,7 +63,7 @@ const ActionButton = ({
     className={`items-center ${disabled ? 'opacity-40' : ''}`}
   >
     <View
-      className={`w-16 h-16 rounded-[22px] items-center justify-center shadow-sm ${
+      className={`${compact ? 'w-14 h-14 rounded-[20px]' : 'w-16 h-16 rounded-[22px]'} items-center justify-center shadow-sm ${
         accent ? 'bg-[#ff4f96]' : 'bg-white'
       }`}
       style={{
@@ -75,15 +74,30 @@ const ActionButton = ({
         elevation: 5,
       }}
     >
-      <AppIcon name={icon} size={28} color={iconColor} />
+      <AppIcon name={icon} size={compact ? 24 : 28} color={iconColor} />
     </View>
-    <Text className="mt-2 text-[12px] font-semibold text-slate-500">{label}</Text>
+    <Text className={`mt-2 ${compact ? 'text-[11px]' : 'text-[12px]'} font-semibold text-slate-500`}>
+      {label}
+    </Text>
   </TouchableOpacity>
 );
 
 const HomeSwipeScreen = ({ navigation }: any) => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
+  const compactLayout = screenHeight < 820 || screenWidth < 390;
+  const ultraCompactLayout = screenHeight < 720 || screenWidth < 360;
+  const cardWidth = Math.min(screenWidth - (ultraCompactLayout ? 20 : 24), 420);
+  const reservedHeight =
+    (ultraCompactLayout ? 430 : compactLayout ? 470 : 520) + Math.max(tabBarHeight, insets.bottom + 64);
+  const cardImageHeight = Math.max(
+    ultraCompactLayout ? 168 : compactLayout ? 196 : 240,
+    Math.min(screenHeight - reservedHeight, compactLayout ? 248 : 320)
+  );
+  const controlsBottomSpace = Math.max(tabBarHeight - insets.bottom + 12, 28);
 
   const [pets, setPets] = useState<PetModel[]>([]);
   const [myPet, setMyPet] = useState<PetModel | null>(null);
@@ -120,14 +134,6 @@ const HomeSwipeScreen = ({ navigation }: any) => {
 
   const currentPet = filteredPets[currentIndex];
 
-  const resetPosition = () => {
-    Animated.spring(position, {
-      toValue: { x: 0, y: 0 },
-      friction: 5,
-      useNativeDriver: false,
-    }).start();
-  };
-
   const nextPet = () => {
     position.setValue({ x: 0, y: 0 });
     setCurrentIndex((prev) => prev + 1);
@@ -148,7 +154,7 @@ const HomeSwipeScreen = ({ navigation }: any) => {
     if (!currentPet) return;
 
     Animated.timing(position, {
-      toValue: { x: SCREEN_WIDTH + 120, y: 0 },
+      toValue: { x: screenWidth + 120, y: 0 },
       duration: 220,
       useNativeDriver: false,
     }).start(async () => {
@@ -161,7 +167,7 @@ const HomeSwipeScreen = ({ navigation }: any) => {
     if (!currentPet) return;
 
     Animated.timing(position, {
-      toValue: { x: -SCREEN_WIDTH - 120, y: 0 },
+      toValue: { x: -screenWidth - 120, y: 0 },
       duration: 220,
       useNativeDriver: false,
     }).start(() => {
@@ -175,39 +181,20 @@ const HomeSwipeScreen = ({ navigation }: any) => {
     position.setValue({ x: 0, y: 0 });
   };
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gesture) =>
-        Math.abs(gesture.dx) > 8 || Math.abs(gesture.dy) > 8,
-      onPanResponderMove: (_, gesture) => {
-        position.setValue({ x: gesture.dx, y: gesture.dy });
-      },
-      onPanResponderRelease: (_, gesture) => {
-        if (gesture.dx > SWIPE_THRESHOLD) {
-          swipeRight();
-        } else if (gesture.dx < -SWIPE_THRESHOLD) {
-          swipeLeft();
-        } else {
-          resetPosition();
-        }
-      },
-    })
-  ).current;
-
   const rotate = position.x.interpolate({
-    inputRange: [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
+    inputRange: [-screenWidth, 0, screenWidth],
     outputRange: ['-12deg', '0deg', '12deg'],
     extrapolate: 'clamp',
   });
 
   const likeOpacity = position.x.interpolate({
-    inputRange: [20, SCREEN_WIDTH / 3],
+    inputRange: [20, screenWidth / 3],
     outputRange: [0, 1],
     extrapolate: 'clamp',
   });
 
   const nopeOpacity = position.x.interpolate({
-    inputRange: [-SCREEN_WIDTH / 3, -20],
+    inputRange: [-screenWidth / 3, -20],
     outputRange: [1, 0],
     extrapolate: 'clamp',
   });
@@ -225,10 +212,11 @@ const HomeSwipeScreen = ({ navigation }: any) => {
     <SafeAreaView className="flex-1 bg-[#fff8fb]">
       <LinearGradient colors={['#fff9fc', '#fff3f6', '#ffffff']} className="absolute inset-0" />
 
-      <View className="px-4 pt-2">
+      <View className="px-4" style={{ paddingTop: compactLayout ? 4 : 8 }}>
         <View
-          className="rounded-[28px] bg-white px-4 py-4 flex-row items-center justify-between"
+          className="rounded-[28px] bg-white px-4 flex-row items-center justify-between"
           style={{
+            paddingVertical: compactLayout ? 12 : 16,
             shadowColor: '#f472b6',
             shadowOpacity: 0.1,
             shadowRadius: 16,
@@ -273,7 +261,7 @@ const HomeSwipeScreen = ({ navigation }: any) => {
                   setCurrentIndex(0);
                   position.setValue({ x: 0, y: 0 });
                 }}
-                className={`flex-1 rounded-[20px] py-3 flex-row items-center justify-center ${active ? 'bg-white' : ''}`}
+                className={`flex-1 rounded-[20px] ${compactLayout ? 'py-2.5' : 'py-3'} flex-row items-center justify-center ${active ? 'bg-white' : ''}`}
                 style={
                   active
                     ? {
@@ -296,7 +284,10 @@ const HomeSwipeScreen = ({ navigation }: any) => {
         </View>
       </View>
 
-      <View className="flex-1 px-4 pb-3">
+      <View
+        className="flex-1 px-4"
+        style={{ paddingBottom: controlsBottomSpace }}
+      >
         {isAdmin ? (
           <View className="flex-1 items-center justify-center px-8">
             <View className="w-24 h-24 rounded-full items-center justify-center mb-6 bg-[#2d1050]">
@@ -341,11 +332,10 @@ const HomeSwipeScreen = ({ navigation }: any) => {
             </TouchableOpacity>
           </View>
         ) : (
-          <View className="flex-1 items-center pt-1">
+          <View className="flex-1 items-center pt-1 justify-between">
             <Animated.View
-              {...panResponder.panHandlers}
               style={{
-                width: Math.min(SCREEN_WIDTH - 32, 420),
+                width: cardWidth,
                 transform: [{ translateX: position.x }, { translateY: position.y }, { rotate }],
               }}
             >
@@ -362,7 +352,7 @@ const HomeSwipeScreen = ({ navigation }: any) => {
                 }}
               >
                 <View className="relative">
-                  <Image source={{ uri: cardImage }} style={{ width: '100%', height: 360 }} resizeMode="cover" />
+                  <Image source={{ uri: cardImage }} style={{ width: '100%', height: cardImageHeight }} resizeMode="cover" />
 
                   <Animated.View style={{ opacity: likeOpacity }} className="absolute top-5 left-5 rotate-[-14deg]">
                     <Text className="text-green-500 border-4 border-green-500 px-4 py-2 rounded-2xl text-3xl font-black">
@@ -385,12 +375,14 @@ const HomeSwipeScreen = ({ navigation }: any) => {
                 <View className="bg-white px-5 pt-5 pb-6">
                   <View className="flex-row items-start justify-between">
                     <View className="flex-1 pr-3">
-                      <Text className="text-[30px] leading-8 font-black text-slate-900">
+                      <Text
+                        className={`${ultraCompactLayout ? 'text-[22px] leading-6' : compactLayout ? 'text-[26px] leading-7' : 'text-[30px] leading-8'} font-black text-slate-900`}
+                      >
                         {currentPet?.name}, {currentPet?.age}
                       </Text>
                       <View className="flex-row items-center mt-2">
                         <AppIcon name="location" size={15} color="#ff4f96" />
-                        <Text className="ml-1 text-[13px] font-medium text-slate-500">
+                        <Text className="ml-1 text-[13px] font-medium text-slate-500" numberOfLines={1}>
                           {currentPet?.location}
                         </Text>
                       </View>
@@ -404,7 +396,10 @@ const HomeSwipeScreen = ({ navigation }: any) => {
                     </View>
                   </View>
 
-                  <Text className="mt-4 text-[14px] leading-6 text-slate-600" numberOfLines={3}>
+                  <Text
+                    className={`mt-4 ${ultraCompactLayout ? 'text-[12px] leading-5' : compactLayout ? 'text-[13px] leading-5' : 'text-[14px] leading-6'} text-slate-600`}
+                    numberOfLines={ultraCompactLayout ? 2 : compactLayout ? 2 : 3}
+                  >
                     {cardSubtitle}
                   </Text>
 
@@ -436,9 +431,17 @@ const HomeSwipeScreen = ({ navigation }: any) => {
               </TouchableOpacity>
             </Animated.View>
 
-            <View className="w-full max-w-[420px] mt-5 rounded-[28px] bg-white px-5 py-4">
+            <View
+              className="w-full rounded-[28px] bg-white"
+              style={{
+                width: cardWidth,
+                marginTop: ultraCompactLayout ? 10 : compactLayout ? 14 : 20,
+                paddingHorizontal: ultraCompactLayout ? 12 : compactLayout ? 16 : 20,
+                paddingVertical: ultraCompactLayout ? 12 : compactLayout ? 14 : 16,
+              }}
+            >
               <Text className="text-center text-[13px] font-semibold text-slate-400">
-                Vuốt ngang hoặc dùng các nút bên dưới để chọn nhanh
+                Dùng các nút bên dưới để chuyển sang thú cưng tiếp theo
               </Text>
               <View className="mt-4 flex-row items-center justify-between">
                 <ActionButton
@@ -447,12 +450,14 @@ const HomeSwipeScreen = ({ navigation }: any) => {
                   iconColor="#64748b"
                   onPress={handleUndo}
                   disabled={currentIndex === 0}
+                  compact={compactLayout}
                 />
                 <ActionButton
                   label="Bỏ qua"
                   icon="close"
                   iconColor="#ef4444"
                   onPress={swipeLeft}
+                  compact={compactLayout}
                 />
                 <ActionButton
                   label="Thích"
@@ -460,12 +465,14 @@ const HomeSwipeScreen = ({ navigation }: any) => {
                   iconColor="#ffffff"
                   onPress={swipeRight}
                   accent
+                  compact={compactLayout}
                 />
                 <ActionButton
                   label="Tải lại"
                   icon="sparkle"
                   iconColor="#f59e0b"
                   onPress={loadPets}
+                  compact={compactLayout}
                 />
               </View>
             </View>

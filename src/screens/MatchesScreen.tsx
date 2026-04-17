@@ -17,7 +17,8 @@ import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { MainTabParamList, MatchModel, PetModel, RootStackParamList } from '@/types';
-import { getLocalMatches, getMatches, getPetById, getPetByOwnerId } from '@/services/petService';
+import { getLocalMatches, getMatches, getPetById, getPetByOwnerId, normalizeMatch, normalizePet, subscribeMatchUpdate } from '@/services/petService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getMessages } from '@/services/chatService';
 import { getRandomImage } from '@/constants/images';
 import * as ImagePicker from 'expo-image-picker';
@@ -161,6 +162,7 @@ const ChatListItem = ({
 // ─── MatchesScreen ─────────────────────────────────────────────────────────
 
 const MatchesScreen = ({ navigation }: Props) => {
+  const insets = useSafeAreaInsets();
   const [myPet, setMyPet] = useState<PetModel | null>(null);
   const [matches, setMatches] = useState<ChatPreview[]>([]);
   const [keyword, setKeyword] = useState('');
@@ -372,7 +374,9 @@ const MatchesScreen = ({ navigation }: Props) => {
             ref={listRef as any}
             style={{ flex: 1 }}
             contentContainerStyle={
-              filtered.length === 0 ? { flex: 1 } : undefined
+              filtered.length === 0
+                ? { flex: 1, paddingBottom: insets.bottom + 24 }
+                : { paddingTop: 4, paddingBottom: insets.bottom + 112 }
             }
             onContentSizeChange={() => listRef.current?.scrollTo({ y: 0, animated: false })}
           >

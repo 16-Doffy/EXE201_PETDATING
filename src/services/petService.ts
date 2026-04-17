@@ -11,10 +11,15 @@ type LocalMatchItem = {
 };
 
 type PetProfileListener = (pet: PetModel | null) => void;
+type MatchUpdateListener = () => void;
 
 const LOCAL_MATCHES_KEY = 'bossitive_local_matches';
 const LOCAL_PET_KEY = 'bossitive_local_pet_profile';
+const PENDING_MATCH_KEY = 'bossitive_pending_match';
+const LIKED_IDS_KEY = 'bossitive_liked_ids';
+
 const petProfileListeners = new Set<PetProfileListener>();
+const matchUpdateListeners = new Set<MatchUpdateListener>();
 
 const toTimestamp = (value: unknown) => {
   if (typeof value === 'number') return value;
@@ -49,7 +54,7 @@ const inferPetType = (pet: Partial<PetModel>) => {
   return 'Dog';
 };
 
-const normalizePet = (pet: Partial<PetModel> & { id?: string; _id?: string }): PetModel => {
+export const normalizePet = (pet: Partial<PetModel> & { id?: string; _id?: string }): PetModel => {
   const type = inferPetType(pet);
   const id = String(pet.id ?? pet._id ?? `pet-${Date.now()}`);
 
@@ -70,7 +75,7 @@ const normalizePet = (pet: Partial<PetModel> & { id?: string; _id?: string }): P
   };
 };
 
-const normalizeMatch = (match: Partial<MatchModel> & { id?: string; _id?: string }): MatchModel => ({
+export const normalizeMatch = (match: Partial<MatchModel> & { id?: string; _id?: string }): MatchModel => ({
   id: String(match.id ?? match._id ?? `match-${Date.now()}`),
   pet1: String(match.pet1 ?? ''),
   pet2: String(match.pet2 ?? ''),
@@ -79,6 +84,17 @@ const normalizeMatch = (match: Partial<MatchModel> & { id?: string; _id?: string
 
 const emitPetProfile = (pet: PetModel | null) => {
   petProfileListeners.forEach((listener) => listener(pet));
+};
+
+export const emitMatchUpdate = () => {
+  matchUpdateListeners.forEach((listener) => listener());
+};
+
+export const subscribeMatchUpdate = (listener: MatchUpdateListener) => {
+  matchUpdateListeners.add(listener);
+  return () => {
+    matchUpdateListeners.delete(listener);
+  };
 };
 
 const readLocalPet = async (): Promise<PetModel | null> => {
@@ -125,6 +141,11 @@ const writeLocalMatches = async (items: LocalMatchItem[]) => {
   );
 };
 
+const removeLocalMatchByPetId = async (petId: string) => {
+  const current = await readLocalMatches();
+  await writeLocalMatches(current.filter((item) => item.pet.id !== petId));
+};
+
 export const subscribePetProfile = (listener: PetProfileListener) => {
   petProfileListeners.add(listener);
   readLocalPet()
@@ -137,8 +158,9 @@ export const subscribePetProfile = (listener: PetProfileListener) => {
 };
 
 export const clearPetCache = async () => {
-  await AsyncStorage.multiRemove([LOCAL_PET_KEY, LOCAL_MATCHES_KEY]);
+  await AsyncStorage.multiRemove([LOCAL_PET_KEY, LOCAL_MATCHES_KEY, LIKED_IDS_KEY, PENDING_MATCH_KEY]);
   emitPetProfile(null);
+  emitMatchUpdate();
 };
 
 export const createPetProfile = async (pet: PetPayload) => {
@@ -180,33 +202,85 @@ export const getExplorePets = async () => {
   return (data.pets || []).map(normalizePet);
 };
 
-export const likePet = async (toPetId: string) => {
+export const getLikedIds = async (): Promise<string[]> => {
+  try {
+    const data = await apiRequest<{ likedIds: string[] }>('/social/liked-ids', { auth: true });
+    const ids = data.likedIds || [];
+    await AsyncStorage.setItem(LIKED_IDS_KEY, JSON.stringify(ids));
+    return ids;
+  } catch {
+    try {
+      const cached = await AsyncStorage.getItem(LIKED_IDS_KEY);
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  }
+};
+
+export const likePet = async (toPetId: string, fallbackPet?: PetModel) => {
   const result = await apiRequest<{ matched: boolean; matchId: string | null }>('/social/like', {
     method: 'POST',
     auth: true,
     body: { toPetId },
   });
 
-  if (result.matched && result.matchId) {
-    const [myPet, otherPet] = await Promise.all([
-      readLocalPet(),
-      getPetById(toPetId).catch(() => null),
-    ]);
+  const myPet = await readLocalPet();
+  if (myPet) {
+    const petToSave = fallbackPet
+      ? normalizePet(fallbackPet)
+      : await getPetById(toPetId).catch(() => null);
 
-    if (myPet && otherPet) {
-      await addLocalMatch(myPet.id, otherPet, result.matchId);
+    if (petToSave) {
+      await addLocalMatch(myPet.id, petToSave, result.matchId || `liked-${petToSave.id}`);
+
+      if (result.matched && result.matchId) {
+        await AsyncStorage.setItem(
+          PENDING_MATCH_KEY,
+          JSON.stringify({
+            matchId: result.matchId,
+            pet: petToSave,
+            timestamp: Date.now(),
+          })
+        );
+      }
     }
   }
 
+  try {
+    const cached = await AsyncStorage.getItem(LIKED_IDS_KEY);
+    const ids: string[] = cached ? JSON.parse(cached) : [];
+    if (!ids.includes(toPetId)) {
+      await AsyncStorage.setItem(LIKED_IDS_KEY, JSON.stringify([...ids, toPetId]));
+    }
+  } catch {}
+
+  emitMatchUpdate();
   return result;
 };
 
 export const unlikePet = async (toPetId: string) => {
-  return apiRequest<{ success: boolean }>('/social/unlike', {
+  const result = await apiRequest<{ success: boolean }>('/social/unlike', {
     method: 'POST',
     auth: true,
     body: { toPetId },
   });
+
+  if (result.success) {
+    try {
+      const cached = await AsyncStorage.getItem(LIKED_IDS_KEY);
+      const ids: string[] = cached ? JSON.parse(cached) : [];
+      await AsyncStorage.setItem(
+        LIKED_IDS_KEY,
+        JSON.stringify(ids.filter((id) => id !== toPetId))
+      );
+    } catch {}
+
+    await removeLocalMatchByPetId(toPetId);
+    emitMatchUpdate();
+  }
+
+  return result;
 };
 
 export const unmatch = async (matchId: string) => {

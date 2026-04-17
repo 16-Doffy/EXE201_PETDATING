@@ -1,24 +1,28 @@
 import { useEffect, useState } from 'react';
-import { Image, ScrollView, Text, View, TouchableOpacity, Dimensions, ActivityIndicator, Alert } from 'react-native';
+import { Image, ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Alert, useWindowDimensions } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RootStackParamList, PetModel } from '@/types';
 import { getPetById, likePet, unlikePet, getPetByOwnerId, getMatches } from '@/services/petService';
 import { LinearGradient } from 'expo-linear-gradient';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PetDetail'>;
 
-const { width } = Dimensions.get('window');
-
 const asId = (value: unknown) => String(value ?? '');
 const matchHasPet = (match: { pet1: string; pet2: string }, petId: string) =>
   asId(match.pet1) === petId || asId(match.pet2) === petId;
 
 const PetDetailScreen = ({ route, navigation }: Props) => {
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
   const [pet, setPet] = useState<PetModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
   const [myPetId, setMyPetId] = useState<string>('');
+  const compactLayout = width < 390;
+  const heroHeight = Math.max(300, Math.min(height * 0.45, 400));
+  const bottomInset = Math.max(insets.bottom, 16);
 
   useEffect(() => {
     const load = async () => {
@@ -105,47 +109,67 @@ const PetDetailScreen = ({ route, navigation }: Props) => {
   }
 
   return (
-    <View className="flex-1 bg-white">
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+    <SafeAreaView className="flex-1 bg-white">
+      <ScrollView
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: bottomInset + 104 }}
+      >
         <View className="relative">
-          <Image source={{ uri: pet.image }} className="w-full h-[400px]" resizeMode="cover" />
+          <Image source={{ uri: pet.image }} className="w-full" style={{ height: heroHeight }} resizeMode="cover" />
           <TouchableOpacity
                 onPress={() => navigation.goBack()}
-                className="absolute top-12 left-4 w-10 h-10 bg-black/20 rounded-full items-center justify-center"
+                className="absolute left-4 w-10 h-10 bg-black/20 rounded-full items-center justify-center"
+                style={{ top: insets.top + 12 }}
             >
                 <Ionicons name="chevron-back" size={24} color="white" />
           </TouchableOpacity>
         </View>
 
-        <View className="bg-white -mt-12 rounded-t-[40px] px-6 pt-8 pb-32 shadow-2xl">
-          <View className="flex-row justify-between items-center">
-            <View>
+        <View className="bg-white -mt-12 rounded-t-[40px] px-6 pt-8 shadow-2xl">
+          <View className={`justify-between ${compactLayout ? '' : 'flex-row items-center'}`}>
+            <View className={compactLayout ? 'pr-0' : 'pr-4'}>
                 <Text className="text-3xl font-bold text-textMain">{pet.name}</Text>
                 <View className="flex-row items-center mt-1">
                     <Ionicons name="location-sharp" size={16} color="#94A3B8" />
-                    <Text className="text-textSub ml-1 text-sm">{pet.location}</Text>
+                    <Text className="text-textSub ml-1 text-sm" numberOfLines={2}>{pet.location}</Text>
                 </View>
             </View>
-            <TouchableOpacity onPress={toggleLike} className="p-3 bg-white shadow-md rounded-full">
+            <TouchableOpacity
+              onPress={toggleLike}
+              className={`p-3 bg-white shadow-md rounded-full ${compactLayout ? 'mt-4 self-start' : ''}`}
+            >
                 <Ionicons name="heart" size={32} color={isLiked ? "#FF5A8A" : "#E2E8F0"} />
             </TouchableOpacity>
           </View>
 
           <Text className="text-lg font-bold text-textMain mt-6 mb-3">Thông tin chi tiết:</Text>
-          <View className="flex-row flex-wrap gap-3">
-            <View className="bg-brandLight rounded-xl px-4 py-3 flex-row items-center min-w-[110px]">
+          <View className="flex-row flex-wrap justify-between">
+            <View
+              className="bg-brandLight rounded-xl px-4 py-3 flex-row items-center mb-3"
+              style={{ width: compactLayout ? '48%' : undefined, minWidth: compactLayout ? undefined : 110 }}
+            >
                 <Ionicons name={pet.gender === 'Male' ? 'male' : 'female'} size={20} color="#00B4DB" />
                 <Text className="ml-2 text-textMain font-medium">{pet.gender}</Text>
             </View>
-            <View className="bg-brandLight rounded-xl px-4 py-3 flex-row items-center min-w-[110px]">
+            <View
+              className="bg-brandLight rounded-xl px-4 py-3 flex-row items-center mb-3"
+              style={{ width: compactLayout ? '48%' : undefined, minWidth: compactLayout ? undefined : 110 }}
+            >
                 <MaterialCommunityIcons name="needle" size={20} color="#00B4DB" />
                 <Text className="ml-2 text-textMain font-medium">Đã tiêm</Text>
             </View>
-            <View className="bg-brandLight rounded-xl px-4 py-3 flex-row items-center min-w-[110px]">
+            <View
+              className="bg-brandLight rounded-xl px-4 py-3 flex-row items-center mb-3"
+              style={{ width: compactLayout ? '48%' : undefined, minWidth: compactLayout ? undefined : 110 }}
+            >
                 <MaterialCommunityIcons name="weight" size={20} color="#00B4DB" />
                 <Text className="ml-2 text-textMain font-medium">{pet.weight || '3.0 kg'}</Text>
             </View>
-            <View className="bg-brandLight rounded-xl px-4 py-3 flex-row items-center min-w-[110px]">
+            <View
+              className="bg-brandLight rounded-xl px-4 py-3 flex-row items-center mb-3"
+              style={{ width: compactLayout ? '48%' : undefined, minWidth: compactLayout ? undefined : 110 }}
+            >
                 <FontAwesome5 name="award" size={18} color="#00B4DB" />
                 <Text className="ml-2 text-textMain font-medium">Có chứng chỉ</Text>
             </View>
@@ -156,16 +180,16 @@ const PetDetailScreen = ({ route, navigation }: Props) => {
             {pet.bio || `${pet.name} là một bé ${pet.type === 'Dog' ? 'chó' : 'mèo'} vô cùng đáng yêu. Bé đang tìm kiếm một gia đình yêu thương.`}
           </Text>
 
-          <View className="mt-10 p-5 bg-slate-50 rounded-[24px] flex-row items-center border border-slate-100">
+          <View className={`mt-10 p-5 bg-slate-50 rounded-[24px] border border-slate-100 ${compactLayout ? '' : 'flex-row items-center'}`}>
              <View className="flex-1">
                 <Text className="font-bold text-[17px] text-textMain">Chủ sở hữu</Text>
                 <Text className="text-textSub text-xs mt-0.5">Phản hồi nhanh • Đã xác thực</Text>
              </View>
-             <View className="flex-row gap-3">
+             <View className={`flex-row ${compactLayout ? 'mt-4' : ''}`}>
                 <TouchableOpacity onPress={goToChat} className="w-12 h-12 bg-white rounded-full items-center justify-center shadow-sm border border-slate-100">
                     <Ionicons name="chatbubble-ellipses" size={24} color="#00B4DB" />
                 </TouchableOpacity>
-                <TouchableOpacity className="w-12 h-12 bg-white rounded-full items-center justify-center shadow-sm border border-slate-100">
+                <TouchableOpacity className="w-12 h-12 bg-white rounded-full items-center justify-center shadow-sm border border-slate-100 ml-3">
                     <Ionicons name="call" size={24} color="#00B4DB" />
                 </TouchableOpacity>
              </View>
@@ -173,7 +197,7 @@ const PetDetailScreen = ({ route, navigation }: Props) => {
         </View>
       </ScrollView>
 
-      <View className="absolute bottom-8 left-0 right-0 px-6">
+      <View className="absolute left-0 right-0 px-6" style={{ bottom: bottomInset }}>
         <TouchableOpacity
             onPress={toggleLike}
             className="rounded-2xl overflow-hidden shadow-lg shadow-primary/30"
@@ -188,7 +212,7 @@ const PetDetailScreen = ({ route, navigation }: Props) => {
             </LinearGradient>
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 

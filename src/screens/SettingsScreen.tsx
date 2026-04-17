@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Alert, ScrollView, StatusBar, Switch, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -11,6 +11,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
 const SettingsScreen = ({ navigation }: Props) => {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [pushEnabled, setPushEnabled] = useState(true);
   const isAdmin = (user as any)?.role === 'admin';
 
@@ -26,7 +27,7 @@ const SettingsScreen = ({ navigation }: Props) => {
         <Text className="flex-1 text-white font-bold text-xl text-center pr-10">Cài đặt</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 24 }}>
         {/* Admin Dashboard */}
         {isAdmin && (
           <TouchableOpacity
@@ -97,7 +98,9 @@ const SettingsScreen = ({ navigation }: Props) => {
           </View>
           <View className="flex-1">
             <Text className="text-white font-medium">Thông tin tài khoản</Text>
-            <Text className="text-gray-500 text-xs mt-0.5">{(user as any)?.email}</Text>
+            <Text className="text-gray-500 text-xs mt-0.5" numberOfLines={1}>
+              {(user as any)?.email}
+            </Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color="#555" />
         </TouchableOpacity>
